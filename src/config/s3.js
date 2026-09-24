@@ -24,6 +24,11 @@ async function getUploadUrl(key) {
 }
 
 async function getDownloadUrl(key) {
+  const bucketName = process.env.RAILWAY_BUCKET_NAME;
+  if (!bucketName) {
+    console.log(bucketName);
+    console.error('La variable de entorno RAILWAY_BUCKET_NAME no está configurada.');
+  }
   const command = new GetObjectCommand({
     Bucket: process.env.RAILWAY_BUCKET_NAME,
     Key: key,
