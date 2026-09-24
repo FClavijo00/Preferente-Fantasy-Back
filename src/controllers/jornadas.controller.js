@@ -1,0 +1,200 @@
+const pool = require('../config/db');
+const { getDownloadUrl } = require('../config/s3');
+
+const getCalendarioJornadas = async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                -- Datos de la jornada
+                j.id as jornada_id,
+                j.numero_jornada,
+                j.estado as jornada_estado,
+                json_agg(
+                    json_build_object(
+                    'partido_id', p.id,
+                    'fecha_partido', p.fecha_partido,
+                    'goles_local', p.goles_local,
+                    'goles_visitante', p.goles_visitante,
+                    'jugado', p.jugado,
+                    'local', json_build_object(
+                        'id', eq_loc.id,
+                        'nombre', eq_loc.nombre,
+                        'escudo_url', eq_loc.escudo_url
+                    ),
+                    'visitante', json_build_object(
+                        'id', eq_vis.id,
+                        'nombre', eq_vis.nombre,
+                        'escudo_url', eq_vis.escudo_url
+                    )
+                    ) ORDER BY p.fecha_partido ASC
+                ) AS partidos
+            FROM jornadas j
+            INNER JOIN partidos p ON p.jornada_id = j.id
+            INNER JOIN equipos eq_loc ON p.equipo_local_id = eq_loc.id
+            INNER JOIN equipos eq_vis ON p.equipo_visitante_id = eq_vis.id
+            -- WHERE j.competicion_id = $1 Opcional: filtrar por competición
+            GROUP BY j.id, j.numero_jornada, j.estado
+            ORDER BY j.numero_jornada ASC;
+        `;
+
+        const { rows } = await pool.query(query);
+
+        const calendarioProcesado = await Promise.all(
+            rows.map(async (jornada) => {
+                const partidos = await Promise.all(
+                    jornada.partidos.map(async (partido) => {
+                        const local = await getDownloadUrl('equipos/' + partido.local.escudo_url);
+                        const visitante = await getDownloadUrl('equipos/' + partido.visitante.escudo_url);
+                        partido.local.escudo = local;
+                        partido.visitante.escudo = visitante;
+                        return partido;
+                    })
+                );
+                jornada.partidos = partidos;
+                return jornada;
+            })
+        );
+
+        res.status(200).json({
+            ok: true,
+            data: calendarioProcesado
+        });
+
+    } catch (error) {
+        console.error('Error al obtener el calendario de jornadas:', error);
+        res.status(500).json({
+            ok: false,
+            message: 'Error al obtener el calendario de jornadas'
+        });
+    }
+}
+
+const getJornadaActual = async (req, res) => {
+    try {
+        const queryJorActual = 'SELECT num_jornada FROM jornada_actual';
+        const queryJorTotal = 'SELECT jornadas_totales FROM competiciones';
+
+        const { rows: rowsActual } = await pool.query(queryJorActual);
+        const { rows: rowsTotal } = await pool.query(queryJorTotal);
+
+        const data = {
+            jornadaActual: rowsActual[0].num_jornada,
+            jornadasTotales: rowsTotal[0].jornadas_totales
+        };
+
+        res.status(200).json({
+            ok: true,
+            data: data
+        });
+    } catch (error) {
+        console.error('Error al obtener la jornada actual:', error);
+        res.status(500).json({
+            ok: false,
+            message: 'Error al obtener la jornada actual'
+        });
+    }
+}
+
+const getJornadas = async (req, res) => {
+    try {
+        const query = 'SELECT * FROM jornadas ORDER BY numero_jornada ASC';
+
+        const { rows } = await pool.query(query);
+
+        res.status(200).json({
+            ok: true,
+            data: rows
+        });
+
+    } catch (error) {
+        console.error('Error al obtener las jornadas:', error);
+        res.status(500).json({
+            ok: false,
+            message: 'Error al obtener las jornadas'
+        });
+    }
+}
+
+const cargarPartidosJornada = async (req, res) => {
+    try {
+        const { jornadaId } = req.body;
+
+        const query = `
+            SELECT p.id as partido_id, p.jornada_id, p.equipo_local_id, p.equipo_visitante_id, 
+            p.fecha_partido, p.goles_local, p.goles_visitante, p.jugado, p.tiene_acta,
+            eq_loc.nombre as local_nombre, eq_vis.nombre as visitante_nombre
+            FROM partidos p
+            INNER JOIN equipos eq_loc ON p.equipo_local_id = eq_loc.id
+            INNER JOIN equipos eq_vis ON p.equipo_visitante_id = eq_vis.id
+            WHERE p.jornada_id = $1
+            ORDER BY p.fecha_partido ASC
+        `;
+
+        const { rows } = await pool.query(query, [jornadaId]);
+
+        res.status(200).json({
+            ok: true,
+            data: rows
+        });
+
+    } catch (error) {
+        console.error('Error al cargar los partidos de la jornada:', error);
+        res.status(500).json({
+            ok: false,
+            message: 'Error al cargar los partidos de la jornada'
+        });
+    }
+}
+
+const cambiarEstadoJornada = async (req, res) => {
+    try {
+        const { jornadaId, estado } = req.body;
+
+        const query = 'UPDATE jornadas SET estado = $1 WHERE id = $2';
+        await pool.query(query, [estado, jornadaId]);
+
+        res.status(200).json({
+            ok: true,
+            message: 'Estado de la jornada cambiado exitosamente'
+        });
+
+    } catch (error) {
+        console.error('Error al cambiar el estado de la jornada:', error);
+        res.status(500).json({
+            ok: false,
+            message: 'Error al cambiar el estado de la jornada'
+        });
+    }
+}
+
+const crearJornada = async (req, res) => {
+    try {
+        const { numero_jornada, estado, fecha_inicio, fecha_fin } = req.body;
+
+        const query = 'INSERT INTO jornadas (numero_jornada, estado, fecha_inicio, fecha_fin, competicion_id) VALUES ($1, $2, $3, $4, $5) RETURNING *';
+        const { rows } = await pool.query(query, [numero_jornada, estado, fecha_inicio, fecha_fin, 1]);
+
+        res.status(200).json({
+            ok: true,
+            message: 'Jornada creada exitosamente',
+            data: rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error al crear la jornada:', error);
+        res.status(500).json({
+            ok: false,
+            message: 'Error al crear la jornada'
+        });
+    }
+}
+
+
+module.exports = {
+    getCalendarioJornadas,
+    getJornadaActual,
+    getJornadas,
+    cargarPartidosJornada,
+    cambiarEstadoJornada,
+    crearJornada
+};
