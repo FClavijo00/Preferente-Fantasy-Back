@@ -82,11 +82,7 @@ const getEquipos = async (req, res) => {  try {
 const getClasificacion = async (req, res) => {
   try {
     const query = `
-      SELECT E.id, E.nombre, E.escudo_url, 
-      CO.pj, CO.pg, CO.pe, CO.pp, CO.gf, CO.gc, CO.dg, CO.pts, CO.san
-      FROM clasificacion_oficial CO
-      INNER JOIN equipos E ON E.id = CO.equipo_id
-      ORDER BY CO.pts DESC, CO.dg DESC, co.gf DESC
+      SELECT * FROM vista_clasificacion
     `;
     
     const { rows } = await pool.query(query);
