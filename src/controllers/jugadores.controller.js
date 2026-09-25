@@ -54,7 +54,7 @@ const editarJugador = async (req, res) => {
 
 const getRanking = async (req, res) => {
     try {
-        const query = `
+        /* const query = `
             SELECT J.nombre, J.apellidos, J.apodo, J.posicion, J.foto_url,
             E.nombre AS equipo, EJ.goles, EJ.goles_en_propia, EJ.goles_encajados,
             EJ.goles_penalti, EJ.jugador_id, EJ.partidos_jugados, EJ.partidos_titular,
@@ -64,6 +64,12 @@ const getRanking = async (req, res) => {
             INNER JOIN equipos E ON E.id = J.equipo_id
             WHERE EJ.goles > 0
             ORDER BY EJ.goles DESC
+        `; */
+        const query = `
+            SELECT jugador_id, nombre, apellidos, apodo, foto_url, nombre_equipo, goles_favor
+            FROM vista_estadisticas_jugadores 
+            WHERE goles_favor > 0
+            ORDER BY goles_favor DESC, nombre ASC
         `;
 
         const { rows } = await pool.query(query);
