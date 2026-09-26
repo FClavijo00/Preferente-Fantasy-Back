@@ -17,7 +17,7 @@ const getEquipos = async (req, res) => {
                 'puntos', PJJ.puntos_totales,
                 'desglose', PJJ.desglose_json,
                 'jornada_id', PJJ.jornada_id
-              ) ORDER BY PJJ.jornada_id ASC
+              ) ORDER BY PJJ.jornada_id DESC
             ) FILTER (WHERE PJJ.jornada_id IS NOT NULL),
             '[]'::json
           ) AS historial_jornadas
