@@ -66,10 +66,10 @@ const getRanking = async (req, res) => {
             ORDER BY EJ.goles DESC
         `; */
         const query = `
-            SELECT jugador_id, nombre, apellidos, apodo, foto_url, nombre_equipo, goles_favor
-            FROM vista_estadisticas_jugadores 
-            WHERE goles_favor > 0
-            ORDER BY goles_favor DESC, nombre ASC
+            SELECT VRP.*, J.foto_url FROM vista_ranking_puntos VRP
+            INNER JOIN jugadores J ON J.id = VRP.jugador_id
+            WHERE VRP.puntos_totales_temporada > 0
+            ORDER BY VRP.puntos_totales_temporada DESC
         `;
 
         const { rows } = await pool.query(query);
@@ -216,7 +216,7 @@ function calcularPuntosJugador({
 
 const getJugadores = async (req, res) => {
     try {
-        const { posicion, excluidos } = req.query;
+        const { posicion, excluidos } = req.body;
 
         if (!posicion) {
             return res.status(400).json({ error: 'La posición es obligatoria.' });
@@ -228,21 +228,21 @@ const getJugadores = async (req, res) => {
             : [];
 
         let query = `
-      SELECT 
-        j.id,
-        j.nombre,
-        j.apodo,
-        j.posicion,
-        j.foto,
-        j.equipo_id,
-        e.nombre AS equipo_nombre,
-        e.escudo AS equipo_escudo,
-        COALESCE(SUM(est.puntos), 0)::int AS puntos_totales
-      FROM jugadores j
-      JOIN equipos e ON j.equipo_id = e.id
-      LEFT JOIN estadisticas_jugador est ON j.id = est.jugador_id
-      WHERE j.posicion = $1
-    `;
+        SELECT 
+            j.id,
+            j.nombre,
+            j.apodo,
+            j.posicion,
+            j.foto_url,
+            j.equipo_id,
+            e.nombre AS equipo_nombre,
+            e.escudo_url AS equipo_escudo_url,
+            COALESCE(SUM(PJJ.puntos_totales), 0)::int AS puntos_totales
+        FROM jugadores j
+        JOIN equipos e ON j.equipo_id = e.id
+        LEFT JOIN puntos_jugadores_jornada PJJ ON j.id = PJJ.jugador_id
+        WHERE j.posicion = $1
+        `;
 
         const values = [posicion];
 
@@ -253,14 +253,29 @@ const getJugadores = async (req, res) => {
         }
 
         query += `
-      GROUP BY j.id, e.id, e.nombre, e.escudo
-      ORDER BY puntos_totales DESC;
-    `;
+            GROUP BY j.id, e.id, e.nombre, e.escudo_url
+            ORDER BY puntos_totales DESC;
+        `;
 
         const { rows } = await pool.query(query, values);
+
+        const jugadoresProcesados = await Promise.all(
+            rows.map(async (jugador) => {
+                if (jugador.foto_url !== null) {
+                    const fotoUrl = await getDownloadUrl('jugadores/' + jugador.foto_url);
+                    jugador.foto = fotoUrl;
+                }
+
+                const equipoFotoUrl = await getDownloadUrl('equipos/' + jugador.equipo_escudo_url);
+                jugador.equipo_escudo = equipoFotoUrl;
+
+                return jugador;
+            })
+        );
+
         res.status(200).json({
             ok: true,
-            data: rows
+            data: jugadoresProcesados
         });
 
     } catch (error) {

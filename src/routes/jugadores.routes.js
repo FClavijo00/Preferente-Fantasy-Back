@@ -11,6 +11,6 @@ router.post('/crearJugador', verifyToken, upload.single('foto'), crearJugador);
 
 router.post('/editarJugador', verifyToken, upload.single('foto'), editarJugador);
 
-router.post('getJugadores', verifyToken, getJugadores);
+router.post('/getJugadores', verifyToken, getJugadores);
 
 module.exports = router;
