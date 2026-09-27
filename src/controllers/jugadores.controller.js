@@ -214,4 +214,59 @@ function calcularPuntosJugador({
     };
 }
 
-module.exports = { crearJugador, editarJugador, getRanking, calcularPuntosJugador };
+const getJugadores = async (req, res) => {
+    try {
+        const { posicion, excluidos } = req.query;
+
+        if (!posicion) {
+            return res.status(400).json({ error: 'La posición es obligatoria.' });
+        }
+
+        // Convertimos el string "12,45,88" en un array de números [12, 45, 88]
+        const idsExcluidos = excluidos
+            ? excluidos.split(',').map(id => parseInt(id, 10)).filter(Boolean)
+            : [];
+
+        let query = `
+      SELECT 
+        j.id,
+        j.nombre,
+        j.apodo,
+        j.posicion,
+        j.foto,
+        j.equipo_id,
+        e.nombre AS equipo_nombre,
+        e.escudo AS equipo_escudo,
+        COALESCE(SUM(est.puntos), 0)::int AS puntos_totales
+      FROM jugadores j
+      JOIN equipos e ON j.equipo_id = e.id
+      LEFT JOIN estadisticas_jugador est ON j.id = est.jugador_id
+      WHERE j.posicion = $1
+    `;
+
+        const values = [posicion];
+
+        // Si hay jugadores ya seleccionados, añadimos el filtro NOT IN
+        if (idsExcluidos.length > 0) {
+            query += ` AND j.id NOT IN (${idsExcluidos.map((_, i) => `$${i + 2}`).join(',')})`;
+            values.push(...idsExcluidos);
+        }
+
+        query += `
+      GROUP BY j.id, e.id, e.nombre, e.escudo
+      ORDER BY puntos_totales DESC;
+    `;
+
+        const { rows } = await pool.query(query, values);
+        res.status(200).json({
+            ok: true,
+            data: rows
+        });
+
+    } catch (error) {
+        console.error('Error al obtener jugadores disponibles:', error);
+        return res.status(500).json({ error: 'Error interno del servidor.' });
+    }
+}
+
+module.exports = { crearJugador, editarJugador, getRanking, calcularPuntosJugador, getJugadores };
