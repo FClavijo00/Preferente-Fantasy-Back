@@ -95,6 +95,40 @@ const getJornadaActual = async (req, res) => {
     }
 }
 
+const getSiguienteJornada = async (req, res) => {
+    try {
+        const query = `
+            SELECT * FROM jornadas WHERE estado = 'PENDIENTE'
+            ORDER BY id ASC
+        `;
+
+        const { rows } = await pool.query(query);
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                message: 'No hay jornadas pendientes'
+            });
+        }
+
+       /*  const siguienteJornada = rows[0].num_jornada;
+        const query2 = 'UPDATE jornada_actual SET num_jornada = $1 WHERE estado = $2';
+        await pool.query(query2, [siguienteJornada, 'PENDIENTE']); */
+
+        res.status(200).json({
+            ok: true,
+            data: rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error al obtener la siguiente jornada:', error);
+        res.status(500).json({
+            ok: false,
+            message: 'Error al obtener la siguiente jornada'
+        });
+    }
+}
+
 const getJornadas = async (req, res) => {
     try {
         const query = 'SELECT * FROM jornadas ORDER BY numero_jornada ASC';
@@ -196,5 +230,6 @@ module.exports = {
     getJornadas,
     cargarPartidosJornada,
     cambiarEstadoJornada,
-    crearJornada
+    crearJornada,
+    getSiguienteJornada
 };

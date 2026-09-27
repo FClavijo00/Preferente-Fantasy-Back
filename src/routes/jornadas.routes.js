@@ -6,7 +6,8 @@ const {
      getJornadas, 
      cargarPartidosJornada, 
      cambiarEstadoJornada ,
-     crearJornada
+     crearJornada,
+     getSiguienteJornada
 } = require('../controllers/jornadas.controller');
 const { verifyToken } = require("../services/verifyToken");
 
@@ -22,6 +23,8 @@ router.post('/cargarPartidosJornada', verifyToken, cargarPartidosJornada);
 router.post('/cambiarEstadoJornada', verifyToken, cambiarEstadoJornada);
 
 router.post('/crearJornada', verifyToken, crearJornada);
+
+router.get('/getSiguienteJornada', verifyToken, getSiguienteJornada);
 
 
 module.exports = router;
