@@ -134,4 +134,34 @@ const getClasificacion = async (req, res) => {
   }
 };
 
-module.exports = { getEquipos, getClasificacion };
+const getEquiposLimpios = async (req, res) => {
+  try {
+    const query = `
+      SELECT id, nombre, escudo_url FROM equipos order by nombre
+    `;
+
+    const { rows } = await pool.query(query);
+
+    const equiposProcesados = await Promise.all(
+      rows.map(async (equipo) => {
+        const fotoUrl = await getDownloadUrl('equipos/' + equipo.escudo_url);
+        equipo.escudo = fotoUrl;
+
+        return equipo;
+      }
+      ));
+
+    res.status(200).json({
+      ok: true,
+      data: equiposProcesados
+    });
+  } catch (error) {
+    console.error('Error al obtener equipos:', error);
+    res.status(500).json({
+      ok: false,
+      message: 'Error al obtener la lista de equipos'
+    });
+  }
+};
+
+module.exports = { getEquipos, getEquiposLimpios, getClasificacion };
