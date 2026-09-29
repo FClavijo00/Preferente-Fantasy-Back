@@ -156,7 +156,8 @@ const cargarPartidosJornada = async (req, res) => {
         const query = `
             SELECT p.id as partido_id, p.jornada_id, p.equipo_local_id, p.equipo_visitante_id, 
             p.fecha_partido, p.goles_local, p.goles_visitante, p.jugado, p.tiene_acta,
-            eq_loc.nombre as local_nombre, eq_vis.nombre as visitante_nombre
+            eq_loc.nombre as local_nombre, eq_vis.nombre as visitante_nombre,
+            eq_loc.escudo_url as local_escudo_url, eq_vis.escudo_url as visitante_escudo_url
             FROM partidos p
             INNER JOIN equipos eq_loc ON p.equipo_local_id = eq_loc.id
             INNER JOIN equipos eq_vis ON p.equipo_visitante_id = eq_vis.id
@@ -166,9 +167,28 @@ const cargarPartidosJornada = async (req, res) => {
 
         const { rows } = await pool.query(query, [jornadaId]);
 
+        if (rows.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                message: 'No se encontraron partidos para la jornada'
+            });
+        }
+
+        const partidosProcesados = await Promise.all(
+            rows.map(async (partido) => {
+                const localUrl = await getDownloadUrl('equipos/' + partido.local_escudo_url);
+                const visitanteUrl = await getDownloadUrl('equipos/' + partido.visitante_escudo_url);
+
+                partido.local_escudo = localUrl;
+                partido.visitante_escudo = visitanteUrl;
+
+                return partido;
+            })
+        );
+
         res.status(200).json({
             ok: true,
-            data: rows
+            data: partidosProcesados
         });
 
     } catch (error) {
