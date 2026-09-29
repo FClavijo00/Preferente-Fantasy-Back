@@ -27,6 +27,11 @@ app.use('/api/ligas', ligasRoutes);
 const partidosRoutes = require('../routes/partidos.routes');
 app.use('/api/partidos', partidosRoutes);
 
+const formacionesRoutes = require('../routes/formaciones.routes');
+app.use('/api/formaciones', formacionesRoutes);
+
+const alineacionesRoutes = require('../routes/alineaciones.routes');
+app.use('/api/alineaciones', alineacionesRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
