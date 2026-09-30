@@ -50,7 +50,8 @@ const getEquipos = async (req, res) => {
                 WHEN 'DEL' THEN 4
                 ELSE 5
               END ASC,
-              J.nombre ASC
+              COALESCE(PA.puntos_totales_acumulados, 0) DESC,
+              J.nombre ASC -- Criterio de desempate opcional por nombre
           ) FILTER (WHERE J.id IS NOT NULL AND J.activo = true),
           '[]'::json
         ) AS jugadores
