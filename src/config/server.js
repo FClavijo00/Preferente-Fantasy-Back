@@ -33,6 +33,9 @@ app.use('/api/formaciones', formacionesRoutes);
 const alineacionesRoutes = require('../routes/alineaciones.routes');
 app.use('/api/alineaciones', alineacionesRoutes);
 
+const clasificacionesRoutes = require('../routes/clasificaciones.routes');
+app.use('/api/clasificaciones', clasificacionesRoutes);
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor backend corriendo en el puerto ${PORT}`);
