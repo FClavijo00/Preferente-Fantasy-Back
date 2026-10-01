@@ -34,7 +34,8 @@ const cargarAlineacion = async (req, res) => {
                 j.apodo,
                 j.foto_url,
                 j.equipo_id,
-                e.nombre AS equipo_nombre
+                e.nombre AS equipo_nombre,
+                e.escudo_url AS equipo_escudo_url
             FROM plantilla_jugadores pj
             JOIN jugadores j ON pj.jugador_id = j.id
             JOIN equipos e ON j.equipo_id = e.id
@@ -47,6 +48,10 @@ const cargarAlineacion = async (req, res) => {
             jugadores.map(async (jugador) => {
                 const fotoUrl = await getDownloadUrl('jugadores/' + jugador.foto_url);
                 jugador.foto = fotoUrl;
+
+                const equipoFotoUrl = await getDownloadUrl('equipos/' + jugador.equipo_escudo_url);
+                jugador.equipo_escudo = equipoFotoUrl;
+                
                 return jugador;
             })
         )
