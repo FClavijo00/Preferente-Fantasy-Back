@@ -68,6 +68,87 @@ const cargarAlineacion = async (req, res) => {
     }
 };
 
+const cargarAlineacionesJornadas = async (req, res) => {
+    try {
+        const { liga_id, usuario_id } = req.body;
+
+        if (!liga_id || !usuario_id) {
+            return res.status(400).json({ error: 'Faltan parámetros requeridos.' });
+        }
+
+        const query = `
+        SELECT 
+            pu.id AS plantilla_id,
+            pu.liga_id,
+            pu.usuario_id,
+            pu.jornada_id,
+            pu.formacion_id,
+            f.formacion,
+            jor.numero_jornada,
+            jor.estado,
+            COALESCE(
+                json_agg(
+                    json_build_object(
+                    'hueco_index', pj.hueco_index,
+                    'posicion', pj.posicion,
+                    'jugador_id', j.id,
+                    'nombre', j.nombre,
+                    'apellidos', j.apellidos,
+                    'apodo', j.apodo,
+                    'foto', j.foto_url,
+                    'equipo_id', j.equipo_id,
+                    'equipo_nombre', e.nombre,
+                    'equipo_escudo_url', e.escudo_url,
+                    'puntos_jornada', COALESCE(pjj.puntos_totales, 0),
+                    'desglose_puntos', pjj.desglose_json
+                    ) ORDER BY pj.hueco_index ASC
+                ) FILTER (WHERE pj.plantilla_id IS NOT NULL),
+                '[]'::json
+            ) AS jugadores
+        FROM plantillas_usuario pu
+        LEFT JOIN plantilla_jugadores pj ON pj.plantilla_id = pu.id
+        LEFT JOIN jugadores j ON j.id = pj.jugador_id
+        LEFT JOIN equipos e ON e.id = j.equipo_id
+        LEFT JOIN jornadas jor ON jor.id = pu.jornada_id
+        LEFT JOIN formaciones f ON f.id = pu.formacion_id
+        -- Hacemos el JOIN con puntos filtrando por jugador_id Y la jornada exacta de la plantilla
+        LEFT JOIN puntos_jugadores_jornada pjj ON pjj.jugador_id = pj.jugador_id AND pjj.jornada_id = pu.jornada_id
+        WHERE pu.liga_id = $1 AND pu.usuario_id = $2
+        GROUP BY pu.id, jor.numero_jornada, f.formacion, jor.estado
+        ORDER BY pu.jornada_id DESC
+        `;
+
+        const { rows: plantillas } = await pool.query(query, [liga_id, usuario_id]);
+
+        // 2. Procesamos la foto de los jugadores
+        const plantillasProcesadas = await Promise.all(
+            plantillas.map(async (plantilla) => {
+                const jugadoresProcesados = await Promise.all(
+                plantilla.jugadores.map(async (jugador) => ({
+                    ...jugador,
+                    foto: jugador.foto ? await getDownloadUrl('jugadores/' + jugador.foto) : null,
+                    equipo_escudo: jugador.equipo_escudo_url ? await getDownloadUrl('equipos/' + jugador.equipo_escudo_url) : null
+                }))
+                );
+
+                return {
+                ...plantilla,
+                jugadores: jugadoresProcesados
+                };
+            })
+        );
+
+        return res.json({
+            ok: true,
+            data: plantillasProcesadas
+        });
+
+    } catch (error) {
+        console.error('Error al cargar alineaciones:', error);
+        return res.status(500).json({ error: 'Error interno del servidor.' });
+    }
+};
+
 const guardarAlineacion = async (req, res) => {
     try {
         const { liga_id, usuario_id, jornada_id, formacion_id, jugadores } = req.body;
@@ -141,5 +222,6 @@ const guardarAlineacion = async (req, res) => {
 
 module.exports = {
     cargarAlineacion,
+    cargarAlineacionesJornadas,
     guardarAlineacion
 };
