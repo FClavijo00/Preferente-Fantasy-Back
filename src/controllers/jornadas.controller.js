@@ -243,6 +243,41 @@ const crearJornada = async (req, res) => {
     }
 }
 
+const getPuntuacionesJornadas = async (req, res) => {
+    try {
+        const { liga_id, usuario_id } = req.body;
+
+        const query = `
+            SELECT DISTINCT 
+                j.id as jornada_id,
+                j.numero_jornada, 
+                j.estado,
+                COALESCE(SUM(pjj.puntos_totales), 0) AS puntos_totales
+            FROM plantillas_usuario pu
+            JOIN jornadas j ON j.id = pu.jornada_id
+            LEFT JOIN plantilla_jugadores pj ON pj.plantilla_id = pu.id
+            LEFT JOIN puntos_jugadores_jornada pjj ON pjj.jugador_id = pj.jugador_id AND pjj.jornada_id = pu.jornada_id
+            WHERE pu.liga_id = $1 AND pu.usuario_id = $2
+            GROUP BY j.id, j.numero_jornada, j.estado
+            ORDER BY j.numero_jornada DESC;
+        `; 
+
+        const { rows } = await pool.query(query, [liga_id, usuario_id]);
+
+        res.status(200).json({
+            ok: true,
+            data: rows
+        });
+
+    } catch (error) {
+        console.error('Error al obtener las puntuaciones de las jornadas:', error);
+        res.status(500).json({
+            ok: false,
+            message: 'Error al obtener las puntuaciones de las jornadas'
+        });
+    }
+}
+
 
 module.exports = {
     getCalendarioJornadas,
@@ -251,5 +286,6 @@ module.exports = {
     cargarPartidosJornada,
     cambiarEstadoJornada,
     crearJornada,
-    getSiguienteJornada
+    getSiguienteJornada,
+    getPuntuacionesJornadas
 };
