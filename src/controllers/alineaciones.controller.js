@@ -70,9 +70,9 @@ const cargarAlineacion = async (req, res) => {
 
 const cargarAlineacionesJornadas = async (req, res) => {
     try {
-        const { liga_id, usuario_id } = req.body;
+        const { liga_id, usuario_id, jornada_id } = req.body;
 
-        if (!liga_id || !usuario_id) {
+        if (!liga_id || !usuario_id || !jornada_id) {
             return res.status(400).json({ error: 'Faltan parámetros requeridos.' });
         }
 
@@ -113,12 +113,12 @@ const cargarAlineacionesJornadas = async (req, res) => {
         LEFT JOIN formaciones f ON f.id = pu.formacion_id
         -- Hacemos el JOIN con puntos filtrando por jugador_id Y la jornada exacta de la plantilla
         LEFT JOIN puntos_jugadores_jornada pjj ON pjj.jugador_id = pj.jugador_id AND pjj.jornada_id = pu.jornada_id
-        WHERE pu.liga_id = $1 AND pu.usuario_id = $2
+        WHERE pu.liga_id = $1 AND pu.usuario_id = $2 AND pu.jornada_id = $3
         GROUP BY pu.id, jor.numero_jornada, f.formacion, jor.estado
         ORDER BY pu.jornada_id DESC
         `;
 
-        const { rows: plantillas } = await pool.query(query, [liga_id, usuario_id]);
+        const { rows: plantillas } = await pool.query(query, [liga_id, usuario_id, jornada_id]);
 
         // 2. Procesamos la foto de los jugadores
         const plantillasProcesadas = await Promise.all(
