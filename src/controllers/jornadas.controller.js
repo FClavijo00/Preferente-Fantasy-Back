@@ -16,6 +16,7 @@ const getCalendarioJornadas = async (req, res) => {
                     'goles_local', p.goles_local,
                     'goles_visitante', p.goles_visitante,
                     'jugado', p.jugado,
+                    'tiene_acta', p.tiene_acta,
                     'local', json_build_object(
                         'id', eq_loc.id,
                         'nombre', eq_loc.nombre,
