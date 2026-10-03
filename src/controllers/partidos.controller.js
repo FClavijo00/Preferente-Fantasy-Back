@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const { calcularPuntosJugador } = require('../controllers/jugadores.controller');
+const { getDownloadUrl } = require('../config/s3');
 
 const crearPartido = async (req, res) => {
     try {
@@ -403,6 +404,167 @@ const obtenerActaPartido = async (req, res) => {
     }
 }
 
+const getActaPartidoPuntos = async (req, res) => {
+    try {
+        const { partido_id } = req.body;
+
+        const query = `
+        SELECT 
+            p.id AS partido_id,
+            p.jornada_id,
+            jor.numero_jornada,
+            p.goles_local,
+            p.goles_visitante,
+            p.jugado,
+            p.tiene_acta,
+            
+            -- Datos Equipo Local
+            el.id AS equipo_local_id,
+            el.nombre AS nombre_local,
+            el.siglas AS siglas_local,
+            el.escudo_url AS escudo_local_url,
+            
+            -- Datos Equipo Visitante
+            ev.id AS equipo_visitante_id,
+            ev.nombre AS nombre_visitante,
+            ev.siglas AS siglas_visitante,
+            ev.escudo_url AS escudo_visitante_url,
+            
+            -- Jugadores del Equipo Local + Puntos
+            COALESCE(
+                (
+                SELECT json_agg(
+                    json_build_object(
+                    'id', j.id,
+                    'nombre', j.nombre,
+                    'apellidos', j.apellidos,
+                    'apodo', j.apodo,
+                    'foto_url', j.foto_url,
+                    'posicion', j.posicion,
+                    'puntos_jornada', COALESCE(pjj.puntos_totales, 0),
+                    'titular', pj.es_titular,
+                    'desglose', COALESCE(pjj.desglose_json::jsonb, '{}'::jsonb)
+                    ) ORDER BY 
+                        CASE j.posicion 
+                        WHEN 'POR' THEN 1 
+                        WHEN 'DEF' THEN 2 
+                        WHEN 'MED' THEN 3 
+                        WHEN 'DEL' THEN 4 
+                        ELSE 5 
+                        END ASC, COALESCE(pjj.puntos_totales, 0) DESC
+                )
+                FROM jugadores j
+                JOIN puntos_jugadores_jornada pjj 
+                    ON pjj.jugador_id = j.id AND pjj.jornada_id = p.jornada_id
+                LEFT JOIN partido_jugadores pj 
+                    ON pj.jugador_id = j.id AND pj.partido_id = p.id
+                WHERE j.equipo_id = p.equipo_local_id
+                ),
+                '[]'::json
+            ) AS jugadores_local,
+
+            -- Jugadores del Equipo Visitante + Puntos
+            COALESCE(
+                (
+                SELECT json_agg(
+                    json_build_object(
+                    'id', j.id,
+                    'nombre', j.nombre,
+                    'apellidos', j.apellidos,
+                    'apodo', j.apodo,
+                    'foto_url', j.foto_url,
+                    'posicion', j.posicion,
+                    'titular', pj.es_titular,
+                    'puntos_jornada', COALESCE(pjj.puntos_totales, 0),
+                    'desglose', COALESCE(pjj.desglose_json::jsonb, '{}'::jsonb)
+                    ) ORDER BY 
+                        CASE j.posicion 
+                        WHEN 'POR' THEN 1 
+                        WHEN 'DEF' THEN 2 
+                        WHEN 'MED' THEN 3 
+                        WHEN 'DEL' THEN 4 
+                        ELSE 5 
+                        END ASC, j.id ASC
+                )
+                FROM jugadores j
+                JOIN puntos_jugadores_jornada pjj 
+                    ON pjj.jugador_id = j.id AND pjj.jornada_id = p.jornada_id
+                LEFT JOIN partido_jugadores pj 
+                    ON pj.jugador_id = j.id AND pj.partido_id = p.id
+                WHERE j.equipo_id = p.equipo_visitante_id
+                ),
+                '[]'::json
+            ) AS jugadores_visitante
+
+            FROM partidos p
+            JOIN jornadas jor ON jor.id = p.jornada_id
+            JOIN equipos el ON el.id = p.equipo_local_id
+            JOIN equipos ev ON ev.id = p.equipo_visitante_id
+            WHERE p.id = $1;
+        `;
+
+        const { rows } = await pool.query(query, [partido_id]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                message: 'Partido no encontrado'
+            });
+        }
+
+        const actaProcesada = await Promise.all(
+            rows.map(async (acta) => {
+                // 1. Resolvemos las imágenes de los escudos
+                const [fotoEscudoLocal, fotoEscudoVisitante] = await Promise.all([
+                    acta.escudo_local_url ? getDownloadUrl('equipos/' + acta.escudo_local_url) : null,
+                    acta.escudo_visitante_url ? getDownloadUrl('equipos/' + acta.escudo_visitante_url) : null
+                ]);
+
+                // 2. Resolvemos las fotos de los jugadores locales
+                const jugadoresLocalProcesados = await Promise.all(
+                    (acta.jugadores_local || []).map(async (jugador) => ({
+                        ...jugador,
+                        foto: jugador.foto_url ? await getDownloadUrl('jugadores/' + jugador.foto_url) : null
+                    }))
+                );
+
+                // 3. Resolvemos las fotos de los jugadores visitantes
+                const jugadoresVisitanteProcesados = await Promise.all(
+                    (acta.jugadores_visitante || []).map(async (jugador) => ({
+                        ...jugador,
+                        foto: jugador.foto_url ? await getDownloadUrl('jugadores/' + jugador.foto_url) : null
+                    }))
+                );
+
+                // 4. Retornamos el acta totalmente resuelta
+                return {
+                    ...acta,
+                    escudo_local: fotoEscudoLocal,
+                    escudo_visitante: fotoEscudoVisitante,
+                    jugadores_local: jugadoresLocalProcesados,
+                    jugadores_visitante: jugadoresVisitanteProcesados
+                };
+            })
+        )
+
+        res.status(200).json({
+            ok: true,
+            data: actaProcesada[0]
+        });
+
+    } catch (error) {
+        console.error('Error al obtener el acta del partido:', error);
+        res.status(500).json({
+            ok: false,
+            message: 'Error al obtener el acta del partido'
+        });
+    }
+}
+
 module.exports = {
-    crearPartido, editarPartido, cerrarActaPartido, obtenerActaPartido
+    crearPartido,
+    editarPartido,
+    cerrarActaPartido,
+    obtenerActaPartido,
+    getActaPartidoPuntos
 };
