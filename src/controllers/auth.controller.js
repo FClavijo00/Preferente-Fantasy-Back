@@ -1,6 +1,6 @@
 const pool = require('../config/db');
 const jwt = require('jsonwebtoken');
-const { getDownloadUrl, getUploadUrl } = require('../config/s3');
+const { getDownloadUrl, getUploadUrl, uploadPhoto } = require('../config/s3');
 
 const login = async (req, res) => {
     try {
@@ -19,6 +19,10 @@ const login = async (req, res) => {
 
         const user = rows[0];
 
+        if (user.image_url && user.image_url.startsWith('avatar')) {
+            user.image = await getDownloadUrl(user.image_url);
+        }
+
         // Generamos el token con una validez (ej. 30 días)
         const token = jwt.sign(
             { userId: user.id, email: user.email },
@@ -34,7 +38,8 @@ const login = async (req, res) => {
                 nombre_usuario:user.nombre_usuario,
                 nombre_club: user.nombre_club,
                 rol_id: user.rol_id,
-                image_url: user.image_url
+                image_url: user.image_url,
+                image: user.image
             }
         }
 
@@ -53,7 +58,14 @@ const login = async (req, res) => {
 
 const register = async (req, res) => {
     try {
-        const { email, password, username, club } = req.body;
+        const { email, password, username, club, foto, foto_url } = req.body;
+
+        if (!email || !password || !username || !club) {
+            return res.status(400).json({
+                ok: false,
+                message: 'Todos los campos son obligatorios'
+            });
+        }
 
         const searchQueryEmail = 'SELECT * FROM usuarios WHERE email = $1';
         const resQueryEmail = await pool.query(searchQueryEmail, [email]);
@@ -75,8 +87,13 @@ const register = async (req, res) => {
             });
         }
 
-        const insertQuery = 'INSERT INTO usuarios (email, password, nombre_usuario, nombre_club) VALUES ($1, $2, $3, $4) RETURNING *';
-        const resultInsert = await pool.query(insertQuery, [email, password, username, club]);
+        const insertQuery = 'INSERT INTO usuarios (email, password, nombre_usuario, nombre_club, image_url) VALUES ($1, $2, $3, $4, $5) RETURNING *';
+        const resultInsert = await pool.query(insertQuery, [email, password, username, club, foto_url]);
+
+        if (req.file) {
+            await uploadPhoto(req.file, 'usuarios');
+        }
+
         res.status(200).json({
             ok: true,
             data: resultInsert.rows[0]
