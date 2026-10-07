@@ -113,7 +113,7 @@ const cargarAlineacionesJornadas = async (req, res) => {
         LEFT JOIN formaciones f ON f.id = pu.formacion_id
         -- Hacemos el JOIN con puntos filtrando por jugador_id Y la jornada exacta de la plantilla
         LEFT JOIN puntos_jugadores_jornada pjj ON pjj.jugador_id = pj.jugador_id AND pjj.jornada_id = pu.jornada_id
-        WHERE pu.liga_id = $1 AND pu.usuario_id = $2 AND pu.jornada_id = $3
+        WHERE pu.liga_id = $1 AND pu.usuario_id = $2 AND pu.jornada_id = $3 AND jor.estado != 'PENDIENTE'
         GROUP BY pu.id, jor.numero_jornada, f.formacion, jor.estado
         ORDER BY pu.jornada_id DESC
         `;
