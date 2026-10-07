@@ -158,7 +158,7 @@ function calcularPuntosJugador({
             }
             total += ptsGol;
             golesMarcados += 1;
-            desglose.goles.push({ concepto: `Goles`, puntos: ptsGol });
+            desglose.goles.push({ concepto: `Gol marcado`, puntos: ptsGol });
         }
     }
 
