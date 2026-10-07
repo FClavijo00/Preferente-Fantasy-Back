@@ -30,10 +30,19 @@ const getClasificacionLiga = async (req, res) => {
         const resClasificacion = await pool.query(query, [liga_id]);
 
         // AQUÍ IRÍA LA PARTE DE PROCESADOR EL AVATAR DEL USUARIO
+        const clasificacionProcesada = await Promise.all(
+            resClasificacion.rows.map(async (usuario) => {
+                if (usuario.image_url && usuario.image_url.startsWith('avatar')) {
+                    const imageUrl = await getDownloadUrl('usuarios/' + usuario.image_url);
+                    return { ...usuario, image_url: imageUrl };
+                }
+                return usuario;
+            })
+        )
 
         res.status(200).json({
             ok: true,
-            data: resClasificacion.rows
+            data: clasificacionProcesada
         });
     } catch (error) {
         console.error('Error al obtener la clasificación de la liga:', error);
