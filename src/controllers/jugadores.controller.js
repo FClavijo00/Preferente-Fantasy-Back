@@ -130,7 +130,7 @@ function calcularPuntosJugador({
     // 2. RESULTADO DEL PARTIDO
     if (resultado === 'VICTORIA') {
         total += 3;
-        desglose.resultado = { concepto: 'Partido Ganado', puntos: 2 };
+        desglose.resultado = { concepto: 'Partido Ganado', puntos: 3 };
     } else if (resultado === 'EMPATE') {
         total += 1;
         desglose.resultado = { concepto: 'Partido Empatado', puntos: 1 };
