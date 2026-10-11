@@ -99,7 +99,9 @@ const getJornadaActual = async (req, res) => {
 const getSiguienteJornada = async (req, res) => {
     try {
         const query = `
-            SELECT * FROM jornadas WHERE estado = 'PENDIENTE'
+            SELECT id, competicion_id, numero_jornada, fecha_inicio,
+            fecha_fin, estado
+            FROM jornadas WHERE estado = 'PENDIENTE'
             ORDER BY id ASC
         `;
 
