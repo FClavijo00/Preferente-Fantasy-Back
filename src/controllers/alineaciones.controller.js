@@ -220,8 +220,86 @@ const guardarAlineacion = async (req, res) => {
     }
 };
 
+const cargarOnceIdeal = async (req, res) => {
+    try {
+        const { jornada_id } = req.body;
+
+        if (!jornada_id) {
+            return res.status(400).json({ error: 'Faltan parámetros requeridos.' });
+        }
+
+        const queryOnceIdeal = `
+            SELECT OI.id as once_ideal_id, F.formacion, OI.jornada_id, J.numero_jornada
+            FROM once_ideal OI
+            JOIN jornadas J ON J.id = OI.jornada_id
+            JOIN formaciones F ON F.id = OI.formacion_id
+            WHERE OI.jornada_id = $1;
+        `;
+
+        const { rows: rowsOnceIdeal } = await pool.query(queryOnceIdeal, [jornada_id]);
+
+        if (rowsOnceIdeal.length === 0) {
+            return res.json({ existe: false, formacion_id: 1, jugadores: [] });
+        }
+
+        const onceIdeal = rowsOnceIdeal[0];
+
+        const queryJugadores = `
+            SELECT
+                POI.jugador_id,
+                POI.hueco_index,
+                j.posicion,
+                j.nombre,
+                j.apellidos,
+                j.apodo,
+                j.foto_url,
+                j.equipo_id,
+                e.nombre AS equipo_nombre,
+                e.escudo_url AS equipo_escudo_url,
+                PJJ.puntos_totales AS puntos_jornada,
+                PJJ.desglose_json
+            FROM plantilla_onces_ideales POI
+            JOIN jugadores j ON j.id = POI.jugador_id
+            JOIN equipos e ON e.id = j.equipo_id
+            JOIN puntos_jugadores_jornada PJJ ON PJJ.jugador_id = POI.jugador_id
+            WHERE POI.once_ideal_id = $1 AND PJJ.jornada_id = $2
+            ORDER BY POI.hueco_index ASC;
+        `;
+
+        const { rows: jugadores } = await pool.query(queryJugadores, [onceIdeal.once_ideal_id, jornada_id]);
+
+        const jugadoresProcesados = await Promise.all(
+            jugadores.map(async (jugador) => {
+                if (jugador.foto_url !== null) {
+                    const fotoUrl = await getDownloadUrl('jugadores/' + jugador.foto_url);
+                    jugador.foto = fotoUrl;
+                }
+
+                const equipoFotoUrl = await getDownloadUrl('equipos/' + jugador.equipo_escudo_url);
+                jugador.equipo_escudo = equipoFotoUrl;
+                
+                return jugador;
+            })
+        )
+
+         return res.json({
+            existe: true,
+            once_ideal_info: onceIdeal,
+            jugadores: jugadoresProcesados
+        });
+
+    } catch {
+        console.error('Error al obtener el once ideal de la jornada:', error);
+        res.status(500).json({
+            ok: false,
+            message: 'Error al obtener el once ideal de la jornada'
+        });
+    }
+};
+
 module.exports = {
     cargarAlineacion,
     cargarAlineacionesJornadas,
-    guardarAlineacion
+    guardarAlineacion,
+    cargarOnceIdeal
 };
