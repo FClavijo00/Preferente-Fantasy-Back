@@ -152,6 +152,29 @@ const getJornadas = async (req, res) => {
     }
 }
 
+const getJornadasDisputadas = async (req, res) => {
+    try {
+        const query = `
+        SELECT * 
+        FROM jornadas 
+        WHERE estado = 'CERRADA' 
+        ORDER BY numero_jornada DESC`;
+
+        const { rows } = await pool.query(query);
+
+        res.status(200).json({
+            ok: true,
+            data: rows
+        });
+    } catch (error) {
+        console.error('Error al obtener las jornadas disputadas:', error);
+        res.status(500).json({
+            ok: false,
+            message: 'Error al obtener las jornadas disputadas'
+        });
+    }
+}
+
 const cargarPartidosJornada = async (req, res) => {
     try {
         const { jornadaId } = req.body;
@@ -290,5 +313,6 @@ module.exports = {
     cambiarEstadoJornada,
     crearJornada,
     getSiguienteJornada,
-    getPuntuacionesJornadas
+    getPuntuacionesJornadas,
+    getJornadasDisputadas
 };
