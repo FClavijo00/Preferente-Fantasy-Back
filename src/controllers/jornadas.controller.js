@@ -13,6 +13,8 @@ const getCalendarioJornadas = async (req, res) => {
                     json_build_object(
                     'partido_id', p.id,
                     'fecha_partido', p.fecha_partido,
+                    'fecha', to_char(p.fecha_partido, 'DD/MM/YYYY'), 
+                    'hora', to_char(p.fecha_partido, 'HH24:MI'),
                     'goles_local', p.goles_local,
                     'goles_visitante', p.goles_visitante,
                     'jugado', p.jugado,
@@ -100,7 +102,10 @@ const getSiguienteJornada = async (req, res) => {
     try {
         const query = `
             SELECT id, competicion_id, numero_jornada, fecha_inicio,
-            fecha_fin, estado
+            fecha_fin, estado, to_char(fecha_inicio, 'DD/MM/YYYY') as fecha_inicio_formateada,
+            to_char(fecha_fin, 'DD/MM/YYYY') as fecha_fin_formateada,
+            to_char(fecha_inicio, 'HH24:MI') as hora_inicio_formateada,
+            to_char(fecha_fin, 'HH24:MI') as hora_fin_formateada
             FROM jornadas WHERE estado = 'PENDIENTE'
             ORDER BY id ASC
         `;
@@ -181,6 +186,7 @@ const cargarPartidosJornada = async (req, res) => {
 
         const query = `
             SELECT p.id as partido_id, p.jornada_id, p.equipo_local_id, p.equipo_visitante_id, 
+            to_char(p.fecha_partido, 'DD/MM/YYYY') as fecha, to_char(p.fecha_partido, 'HH24:MI') as hora,
             p.fecha_partido, p.goles_local, p.goles_visitante, p.jugado, p.tiene_acta,
             eq_loc.nombre as local_nombre, eq_vis.nombre as visitante_nombre,
             eq_loc.escudo_url as local_escudo_url, eq_vis.escudo_url as visitante_escudo_url
