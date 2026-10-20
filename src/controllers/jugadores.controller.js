@@ -284,4 +284,61 @@ const getJugadores = async (req, res) => {
     }
 }
 
-module.exports = { crearJugador, editarJugador, getRanking, calcularPuntosJugador, getJugadores };
+const getJugadoresPorJornada = async (req, res) => {
+    try {
+        const { jornada_id, posicion } = req.body;
+
+        if (!posicion || !jornada_id) {
+            return res.status(400).json({ error: 'La posición y el ID de la jornada son obligatorios.' });
+        }
+
+        const query = `
+            SELECT
+                j.id,
+                j.nombre,
+                j.apodo,
+                j.posicion,
+                j.foto_url,
+                j.equipo_id,
+                e.nombre AS equipo_nombre,
+                e.escudo_url AS equipo_escudo_url,
+                COALESCE(SUM(PJJ.puntos_totales), 0)::int AS puntos_jornada
+            FROM jugadores j
+            JOIN equipos e ON j.equipo_id = e.id
+            LEFT JOIN puntos_jugadores_jornada PJJ ON j.id = PJJ.jugador_id
+            WHERE j.posicion = $1 AND PJJ.jornada_id = $2
+            GROUP BY j.id, e.id, e.nombre, e.escudo_url
+            ORDER BY puntos_jornada DESC
+            LIMIT 10
+        `;
+
+        const values = [posicion, jornada_id];
+
+        const { rows } = await pool.query(query, values);
+
+        const jugadoresProcesados = await Promise.all(
+            rows.map(async (jugador) => {
+                if (jugador.foto_url !== null) {
+                    const fotoUrl = await getDownloadUrl('jugadores/' + jugador.foto_url);
+                    jugador.foto = fotoUrl;
+                }
+
+                const equipoFotoUrl = await getDownloadUrl('equipos/' + jugador.equipo_escudo_url);
+                jugador.equipo_escudo = equipoFotoUrl;
+
+                return jugador;
+            })
+        );
+
+        res.status(200).json({
+            ok: true,
+            data: jugadoresProcesados
+        });
+
+    } catch (error) {
+        console.error('Error al obtener jugadores disponibles:', error);
+        return res.status(500).json({ error: 'Error interno del servidor.' });
+    }
+}
+
+module.exports = { crearJugador, editarJugador, getRanking, calcularPuntosJugador, getJugadores, getJugadoresPorJornada };
