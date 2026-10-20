@@ -310,6 +310,30 @@ const getPuntuacionesJornadas = async (req, res) => {
     }
 }
 
+const getJornadasOnceIdeal = async (req, res) => {
+    try {
+        const query = `
+            SELECT J.id, J.competicion_id, J.numero_jornada, J.estado
+            FROM jornadas J
+            JOIN once_ideal OI ON J.id = OI.jornada_id
+            ORDER BY J.id ASC
+        `;
+        
+        const { rows } = await pool.query(query);
+
+        res.status(200).json({
+            ok: true,
+            data: rows
+        });
+    } catch (error) {
+        console.error('Error al obtener las jornadas:', error);
+        res.status(500).json({
+            ok: false,
+            message: 'Error al obtener las jornadas'
+        });
+    }
+}
+
 
 module.exports = {
     getCalendarioJornadas,
@@ -320,5 +344,6 @@ module.exports = {
     crearJornada,
     getSiguienteJornada,
     getPuntuacionesJornadas,
-    getJornadasDisputadas
+    getJornadasDisputadas,
+    getJornadasOnceIdeal
 };

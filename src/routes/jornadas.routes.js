@@ -9,7 +9,8 @@ const {
      crearJornada,
      getSiguienteJornada,
      getPuntuacionesJornadas,
-     getJornadasDisputadas
+     getJornadasDisputadas,
+     getJornadasOnceIdeal
 } = require('../controllers/jornadas.controller');
 const { verifyToken } = require("../services/verifyToken");
 
@@ -31,5 +32,7 @@ router.get('/getSiguienteJornada', verifyToken, getSiguienteJornada);
 router.post('/getPuntuacionesJornadas', verifyToken, getPuntuacionesJornadas);
 
 router.get('/getJornadasDisputadas', verifyToken, getJornadasDisputadas);
+
+router.get('/getJornadasOnceIdeal', verifyToken, getJornadasOnceIdeal);
 
 module.exports = router;
