@@ -288,7 +288,7 @@ const cargarOnceIdeal = async (req, res) => {
             jugadores: jugadoresProcesados
         });
 
-    } catch {
+    } catch (error) {
         console.error('Error al obtener el once ideal de la jornada:', error);
         res.status(500).json({
             ok: false,
@@ -297,9 +297,64 @@ const cargarOnceIdeal = async (req, res) => {
     }
 };
 
+const guardarOnceIdeal = async (req, res) => {
+    try {
+        const { jornada_id, formacion_id, jugadores } = req.body;
+
+        if (!jornada_id || !formacion_id || !jugadores) {
+            return res.status(400).json({ error: 'Faltan parámetros requeridos.' });
+        }
+
+        // 1. Iniciamos la transacción SQL
+        await pool.query('BEGIN');
+
+        // 2. Guardamos el once ideal en la base de datos
+        const queryOnceIdeal = `
+            INSERT INTO once_ideal (jornada_id, formacion_id)
+            VALUES ($1, $2)
+            RETURNING id;
+        `;
+
+        const { rows: rowsOnceIdeal } = await pool.query(queryOnceIdeal, [jornada_id, formacion_id]);
+
+        const onceIdealId = rowsOnceIdeal[0].id;
+
+        const queryJugadores = `
+            INSERT INTO plantilla_onces_ideales (once_ideal_id, jugador_id, hueco_index)
+            VALUES ($1, $2, $3);
+        `;
+
+        for (const slot of jugadores) {
+            if (slot.jugador_id) { // Solo insertamos los huecos que tengan jugador asignado
+                await pool.query(queryJugadores, [
+                    onceIdealId,
+                    slot.jugador_id,
+                    slot.hueco_index
+                ]);
+            }
+        }
+
+        // 5. Confirmamos todos los cambios en la base de datos
+        await pool.query('COMMIT');
+
+        res.status(200).json({
+            ok: true,
+            message: 'Once ideal guardado exitosamente'
+        });
+
+    } catch (error) {
+        console.error('Error al guardar el once ideal de la jornada:', error);
+        res.status(500).json({
+            ok: false,
+            message: 'Error al guardar el once ideal de la jornada'
+        });
+    }
+};
+
 module.exports = {
     cargarAlineacion,
     cargarAlineacionesJornadas,
     guardarAlineacion,
-    cargarOnceIdeal
+    cargarOnceIdeal,
+    guardarOnceIdeal
 };
