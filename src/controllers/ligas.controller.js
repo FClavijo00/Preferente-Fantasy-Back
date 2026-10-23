@@ -1,12 +1,70 @@
 const pool = require('../config/db');
 
+const abandonarLiga = async (req, res) => {
+    try {
+        const { liga_id, user_id } = req.body;
+
+        if (!liga_id || !user_id) {
+            return res.status(400).json({ error: 'Faltan parámetros requeridos.' });
+        }
+
+        const query = `
+            DELETE FROM liga_usuarios
+            WHERE liga_id = $1 AND usuario_id = $2;
+        `;
+
+        await pool.query(query, [liga_id, user_id]);
+
+        res.status(200).json({
+            ok: true,
+            message: 'Has abandonado la liga exitosamente.'
+        });
+
+    } catch (error) {
+        console.error('Error al abandonar la liga:', error);
+        res.status(500).json({
+            ok: false,
+            message: 'Error al abandonar la liga'
+        });
+    }
+}
+
+const eliminarLiga = async (req, res) => {
+    try {
+        const { liga_id } = req.body;
+
+        if (!liga_id) {
+            return res.status(400).json({ error: 'Faltan parámetros requeridos.' });
+        }
+
+        const query = `
+            DELETE FROM ligas
+            WHERE id = $1;
+        `;
+
+        await pool.query(query, [liga_id]);
+
+        res.status(200).json({
+            ok: true,
+            message: 'Has eliminado la liga exitosamente.'
+        });
+
+    } catch (error) {
+        console.error('Error al eliminar la liga:', error);
+        res.status(500).json({
+            ok: false,
+            message: 'Error al eliminar la liga'
+        });
+    }
+}
+
 const getMisLigas = async (req, res) => {
     try {
         // Extraemos el id cargado en el token
         const userId = req.userId;
 
         const query = `
-        SELECT L.id, L.nombre as nombre_liga, L.codigo_acceso, L.privada,
+        SELECT L.id, L.nombre as nombre_liga, L.codigo_acceso, L.privada, L.creado_por,
         C.nombre as nombre_competicion, COUNT(todos_LU.usuario_id)::INT AS total_participantes
         FROM ligas L
         INNER JOIN competiciones C ON C.id = L.competicion_id
@@ -140,6 +198,43 @@ const unirseALiga = async (req, res) => {
     }
 }
 
+const cargarUsuariosLiga = async (req, res) => {
+    try {
+        const { liga_id } = req.body;
+
+        if (!liga_id) {
+            return res.status(400).json({ error: 'Faltan parámetros requeridos.' });
+        }
+
+        const query = `
+            SELECT 
+                u.id AS usuario_id,
+                u.nombre_usuario,
+                u.nombre_club,
+                u.image_url
+            FROM liga_usuarios lu
+            JOIN usuarios u ON u.id = lu.usuario_id
+            WHERE lu.liga_id = $1
+            GROUP BY u.id, u.nombre_usuario, u.nombre_club, u.image_url
+            ORDER BY u.id ASC;
+        `;
+
+        const { rows } = await pool.query(query, [liga_id]);
+
+        res.status(200).json({
+            ok: true,
+            data: rows
+        });
+
+    } catch (error) {
+        console.error('Error al cargar los usuarios de la liga:', error);
+        res.status(500).json({
+            ok: false,
+            message: 'Error al cargar los usuarios de la liga'
+        });
+    }
+}
+
 const generarCodigoUnico = () => {
     // Genera un bloque aleatorio en base 36 y extrae 4 caracteres
     const aleatorio = Math.random().toString(36).substring(2, 6).padEnd(4, '0').toUpperCase();
@@ -147,4 +242,4 @@ const generarCodigoUnico = () => {
     return `PF-${aleatorio}`;
 };
 
-module.exports = { crearLiga, getMisLigas, getLigasAbiertas, unirseALiga };
+module.exports = { cargarUsuariosLiga, abandonarLiga, eliminarLiga, crearLiga, getMisLigas, getLigasAbiertas, unirseALiga };
