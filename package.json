@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/config/server.js",
-    "dev": "nodemon src/config/server.js"
+    "dev": "nodemon src/config/server.js",
+    "bd:copiar-a-staging": "node scripts/copiar-bd-a-staging.js"
   },
   "keywords": [],
   "author": "",
