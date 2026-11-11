@@ -1,4 +1,4 @@
-const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const router = require('express').Router();
 const multer = require('multer');
@@ -11,6 +11,14 @@ const s3 = new S3Client({
     secretAccessKey: process.env.RAILWAY_STORAGE_SECRET_KEY,
   },
 });
+
+// En el entorno de pruebas (staging) se usa el MISMO almacenamiento que en producción
+// para que se vean las fotos reales, pero sin escribir ni borrar nada en él.
+// Actívalo en Railway con la variable STORAGE_SOLO_LECTURA=true (solo en staging).
+const soloLectura = process.env.STORAGE_SOLO_LECTURA === 'true';
+if (soloLectura) {
+  console.log('🔒 Almacenamiento en modo SOLO LECTURA: no se subirán ni borrarán fotos');
+}
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -39,6 +47,11 @@ async function getDownloadUrl(key) {
 async function uploadPhoto(file, carpeta) {
   const key = `${carpeta}/${file.originalname}`;
 
+  if (soloLectura) {
+    console.log(`[solo lectura] Subida omitida: ${key}`);
+    return `${process.env.S3_PUBLIC_URL}/${key}`;
+  }
+
   const command = new PutObjectCommand({
     Bucket: process.env.RAILWAY_BUCKET_NAME,
     Key: key,
@@ -52,4 +65,17 @@ async function uploadPhoto(file, carpeta) {
   return `${process.env.S3_PUBLIC_URL}/${key}`;
 }
 
-module.exports = { getUploadUrl, getDownloadUrl, uploadPhoto, upload };
+async function deletePhoto(key) {
+  if (soloLectura) {
+    console.log(`[solo lectura] Borrado omitido: ${key}`);
+    return;
+  }
+
+  const command = new DeleteObjectCommand({
+    Bucket: process.env.RAILWAY_BUCKET_NAME,
+    Key: key,
+  });
+  await s3.send(command);
+}
+
+module.exports = { getUploadUrl, getDownloadUrl, uploadPhoto, deletePhoto, upload };
