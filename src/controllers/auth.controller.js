@@ -1,7 +1,10 @@
 const pool = require('../config/db');
 const jwt = require('jsonwebtoken');
-const { getDownloadUrl, getUploadUrl, uploadPhoto } = require('../config/s3');
+const { getDownloadUrl, getUploadUrl, uploadPhoto, deletePhoto } = require('../config/s3');
 const bcrypt = require('bcrypt');
+
+// Nunca devolver el hash de la contraseña al cliente
+const sinPassword = ({ password, ...usuario }) => usuario;
 
 const login = async (req, res) => {
     try {
@@ -115,7 +118,7 @@ const register = async (req, res) => {
 
         res.status(200).json({
             ok: true,
-            data: resultInsert.rows[0]
+            data: sinPassword(resultInsert.rows[0])
         });
 
     } catch (error) {
@@ -128,7 +131,9 @@ const register = async (req, res) => {
 
 const actualizarUsuario = async (req, res) => {
     try {
-        const { id, nombre_club, nombre_usuario, foto_url } = req.body;
+        const { nombre_club, nombre_usuario, foto_url } = req.body;
+        // El usuario solo puede editar su propio perfil (id sacado del token)
+        const id = req.userId;
 
         if (!id) {
             return res.status(400).json({
@@ -158,7 +163,7 @@ const actualizarUsuario = async (req, res) => {
 
         res.status(200).json({
             ok: true,
-            data: resQuery.rows[0],
+            data: sinPassword(resQuery.rows[0]),
             message: 'Usuario actualizado exitosamente'
         });
 
@@ -172,20 +177,46 @@ const actualizarUsuario = async (req, res) => {
 
 const cambiarPassword = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { passwordActual, passwordNueva } = req.body;
 
-        if (!email || !password) {
+        if (!passwordActual || !passwordNueva) {
             return res.status(400).json({
                 ok: false,
                 message: 'Todos los campos son obligatorios'
             });
         }
 
-        const saltRounds = 10;
-        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        if (passwordNueva.length < 6) {
+            return res.status(400).json({
+                ok: false,
+                message: 'La nueva contraseña debe tener al menos 6 caracteres'
+            });
+        }
 
-        const updateQuery = 'UPDATE usuarios SET password = $1 WHERE email = $2';
-        await pool.query(updateQuery, [hashedPassword, email]);
+        // Solo se cambia la contraseña del usuario del token, y solo si conoce la actual
+        const { rows } = await pool.query('SELECT password FROM usuarios WHERE id = $1', [req.userId]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                message: 'Usuario no encontrado'
+            });
+        }
+
+        const passwordCorrecta = await bcrypt.compare(passwordActual, rows[0].password);
+
+        if (!passwordCorrecta) {
+            return res.status(401).json({
+                ok: false,
+                message: 'La contraseña actual no es correcta'
+            });
+        }
+
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(passwordNueva, saltRounds);
+
+        const updateQuery = 'UPDATE usuarios SET password = $1 WHERE id = $2';
+        await pool.query(updateQuery, [hashedPassword, req.userId]);
 
         res.status(200).json({
             ok: true,
@@ -202,7 +233,8 @@ const cambiarPassword = async (req, res) => {
 
 const cargarPerfil = async (req, res) => {
     try {
-        const { id } = req.body;
+        // Solo el perfil propio (id sacado del token)
+        const id = req.userId;
 
         if (!id) {
             return res.status(400).json({
@@ -214,13 +246,20 @@ const cargarPerfil = async (req, res) => {
         const searchQuery = 'SELECT * FROM usuarios WHERE id = $1';
         const resQuery = await pool.query(searchQuery, [id]);
 
+        if (resQuery.rows.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                message: 'Usuario no encontrado'
+            });
+        }
+
         if (resQuery.rows[0].image_url && resQuery.rows[0].image_url.startsWith('avatar')) {
             resQuery.rows[0].image_url = await getDownloadUrl('usuarios/' + resQuery.rows[0].image_url);
         }
 
         res.status(200).json({
             ok: true,
-            data: resQuery.rows[0]
+            data: sinPassword(resQuery.rows[0])
         });
 
     } catch (error) {
@@ -231,4 +270,93 @@ const cargarPerfil = async (req, res) => {
     }
 }
 
-module.exports = { login, register, cambiarPassword, actualizarUsuario, cargarPerfil };
+/**
+ * Elimina la cuenta del usuario del token tras confirmar su contraseña.
+ *
+ * OJO: ligas.creado_por tiene ON DELETE CASCADE, así que antes de borrar al
+ * usuario hay que traspasar las ligas que creó y que tienen más miembros
+ * (si no, se borrarían con los equipos de todos). El resto de sus datos
+ * (liga_usuarios, plantillas_usuario y plantilla_jugadores) caen en cascada.
+ */
+const eliminarCuenta = async (req, res) => {
+    const { password } = req.body;
+
+    if (!password) {
+        return res.status(400).json({
+            ok: false,
+            message: 'Introduce tu contraseña para confirmar'
+        });
+    }
+
+    // Conexión dedicada: con pool.query cada consulta puede ir por una conexión
+    // distinta y BEGIN/COMMIT no agruparían nada
+    const client = await pool.pool.connect();
+    let imagenUrl = null;
+
+    try {
+        const { rows } = await client.query('SELECT password, image_url FROM usuarios WHERE id = $1', [req.userId]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                message: 'Usuario no encontrado'
+            });
+        }
+
+        const passwordCorrecta = await bcrypt.compare(password, rows[0].password);
+
+        if (!passwordCorrecta) {
+            return res.status(401).json({
+                ok: false,
+                message: 'La contraseña no es correcta'
+            });
+        }
+
+        imagenUrl = rows[0].image_url;
+
+        await client.query('BEGIN');
+
+        // Traspasar cada liga creada por el usuario al miembro más antiguo que quede
+        await client.query(`
+            UPDATE ligas l
+            SET creado_por = sig.usuario_id
+            FROM (
+                SELECT DISTINCT ON (lu.liga_id) lu.liga_id, lu.usuario_id
+                FROM liga_usuarios lu
+                JOIN ligas li ON li.id = lu.liga_id
+                WHERE li.creado_por = $1 AND lu.usuario_id <> $1
+                ORDER BY lu.liga_id, lu.joined_at ASC
+            ) sig
+            WHERE l.id = sig.liga_id
+        `, [req.userId]);
+
+        // Las ligas en las que estaba solo se borran en cascada con el usuario
+        await client.query('DELETE FROM usuarios WHERE id = $1', [req.userId]);
+
+        await client.query('COMMIT');
+    } catch (error) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.error('Error al eliminar la cuenta:', error);
+        return res.status(500).json({
+            ok: false,
+            message: 'Error al eliminar la cuenta'
+        });
+    } finally {
+        client.release();
+    }
+
+    res.status(200).json({
+        ok: true,
+        message: 'Tu cuenta se ha eliminado correctamente'
+    });
+
+    // La foto se borra después de responder: si fallase, la cuenta ya está eliminada
+    // y solo quedaría un fichero huérfano en el almacenamiento
+    if (imagenUrl && imagenUrl.startsWith('avatar')) {
+        deletePhoto('usuarios/' + imagenUrl).catch((error) => {
+            console.error('No se pudo borrar la foto del usuario eliminado:', error);
+        });
+    }
+};
+
+module.exports = { login, register, cambiarPassword, actualizarUsuario, cargarPerfil, eliminarCuenta };
