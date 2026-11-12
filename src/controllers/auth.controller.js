@@ -2,9 +2,38 @@ const pool = require('../config/db');
 const jwt = require('jsonwebtoken');
 const { getDownloadUrl, getUploadUrl, uploadPhoto, deletePhoto } = require('../config/s3');
 const bcrypt = require('bcrypt');
+const crypto = require('node:crypto');
 
 // Nunca devolver el hash de la contraseña al cliente
 const sinPassword = ({ password, ...usuario }) => usuario;
+
+/* --------------------------------------------------------------------------
+   Foto de perfil: el nombre del fichero lo pone el SERVIDOR (antes lo enviaba
+   el navegador y un usuario podía sustituir la foto de otro).
+   Empieza por "avatar" porque así se distinguen las fotos subidas del resto.
+   -------------------------------------------------------------------------- */
+const TAMANO_MAX_AVATAR = 3 * 1024 * 1024;
+
+const validarAvatar = (file) => {
+    if (!file) return null;
+    if (!file.mimetype || !file.mimetype.startsWith('image/')) return 'La foto debe ser una imagen.';
+    if (file.size > TAMANO_MAX_AVATAR) return 'La foto es demasiado grande (máximo 3 MB).';
+    return null;
+};
+
+/** Sube la foto del usuario y devuelve el nombre guardado en usuarios.image_url. */
+const subirAvatar = async (file, usuarioId) => {
+    const nombre = `avatar_${usuarioId}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.webp`;
+    await uploadPhoto({ ...file, originalname: nombre }, 'usuarios');
+    return nombre;
+};
+
+const borrarAvatarAntiguo = (imageUrl) => {
+    if (!imageUrl || !imageUrl.startsWith('avatar')) return;
+    deletePhoto('usuarios/' + imageUrl).catch((error) => {
+        console.error('No se pudo borrar la foto antigua del usuario:', error);
+    });
+};
 
 const login = async (req, res) => {
     try {
@@ -72,7 +101,7 @@ const login = async (req, res) => {
 
 const register = async (req, res) => {
     try {
-        const { email, password, username, club, foto, foto_url } = req.body;
+        const { email, password, username, club } = req.body;
 
         if (!email || !password || !username || !club) {
             return res.status(400).json({
@@ -81,7 +110,10 @@ const register = async (req, res) => {
             });
         }
 
-        let url_foto = null;
+        const errorFoto = validarAvatar(req.file);
+        if (errorFoto) {
+            return res.status(400).json({ ok: false, message: errorFoto });
+        }
 
         const searchQueryEmail = 'SELECT * FROM usuarios WHERE email = $1';
         const resQueryEmail = await pool.query(searchQueryEmail, [email]);
@@ -109,11 +141,15 @@ const register = async (req, res) => {
         const insertQuery = 'INSERT INTO usuarios (email, password, nombre_usuario, nombre_club) VALUES ($1, $2, $3, $4) RETURNING *';
         const resultInsert = await pool.query(insertQuery, [email, hashedPassword, username, club]);
 
+        // La cuenta ya está creada: si la foto fallase, se registra igualmente sin foto
         if (req.file) {
-            url_foto = foto_url;
-            await uploadPhoto(req.file, 'usuarios');
-            const updateQuery = 'UPDATE usuarios SET image_url = $1 WHERE id = $2';
-            await pool.query(updateQuery, [url_foto, resultInsert.rows[0].id]);
+            try {
+                const imagen = await subirAvatar(req.file, resultInsert.rows[0].id);
+                await pool.query('UPDATE usuarios SET image_url = $1 WHERE id = $2', [imagen, resultInsert.rows[0].id]);
+                resultInsert.rows[0].image_url = imagen;
+            } catch (error) {
+                console.error('No se pudo guardar la foto del nuevo usuario:', error);
+            }
         }
 
         res.status(200).json({
@@ -131,7 +167,7 @@ const register = async (req, res) => {
 
 const actualizarUsuario = async (req, res) => {
     try {
-        const { nombre_club, nombre_usuario, foto_url } = req.body;
+        const { nombre_club, nombre_usuario } = req.body;
         // El usuario solo puede editar su propio perfil (id sacado del token)
         const id = req.userId;
 
@@ -142,16 +178,19 @@ const actualizarUsuario = async (req, res) => {
             });
         }
 
-        let url_foto = null;
+        const errorFoto = validarAvatar(req.file);
+        if (errorFoto) {
+            return res.status(400).json({ ok: false, message: errorFoto });
+        }
 
         const updateQuery = 'UPDATE usuarios SET nombre_club = $1, nombre_usuario = $2 WHERE id = $3';
         await pool.query(updateQuery, [nombre_club, nombre_usuario, id]);
 
         if (req.file) {
-            url_foto = foto_url;
-            await uploadPhoto(req.file, 'usuarios');
-            const updateQuery = 'UPDATE usuarios SET image_url = $1 WHERE id = $2';
-            await pool.query(updateQuery, [url_foto, id]);
+            const { rows: actual } = await pool.query('SELECT image_url FROM usuarios WHERE id = $1', [id]);
+            const imagen = await subirAvatar(req.file, id);
+            await pool.query('UPDATE usuarios SET image_url = $1 WHERE id = $2', [imagen, id]);
+            borrarAvatarAntiguo(actual[0]?.image_url);
         }
 
         const searchQuery = 'SELECT * FROM usuarios WHERE id = $1';
