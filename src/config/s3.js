@@ -21,7 +21,8 @@ if (soloLectura) {
 }
 
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+// Límite de tamaño: sin él, cualquiera (el registro es público) podría llenar la memoria del servidor
+const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
 
 async function getUploadUrl(key) {
   const command = new PutObjectCommand({
