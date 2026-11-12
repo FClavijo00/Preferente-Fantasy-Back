@@ -1,12 +1,21 @@
-const pool = require('../config/db');
-const { getDownloadUrl } = require('../config/s3');
+const pool = require("../config/db");
+const { getDownloadUrl } = require("../config/s3");
+const { esMiembroLiga, withTransaction } = require("../services/permisos");
+
+const noEsMiembro = (res) =>
+    res.status(403).json({ ok: false, message: "No perteneces a esta liga" });
 
 const cargarAlineacion = async (req, res) => {
     try {
         const { liga_id, usuario_id, jornada_id } = req.body;
 
         if (!liga_id || !usuario_id || !jornada_id) {
-            return res.status(400).json({ error: 'Faltan parámetros requeridos.' });
+            return res.status(400).json({ error: "Faltan parámetros requeridos." });
+        }
+
+        // Se puede ver la alineación de otro miembro (clasificación), pero solo dentro de tus ligas
+        if (!(await esMiembroLiga(liga_id, req.userId))) {
+            return noEsMiembro(res);
         }
 
         // 1. Buscamos la plantilla guardada
@@ -15,7 +24,11 @@ const cargarAlineacion = async (req, res) => {
             FROM plantillas_usuario 
             WHERE liga_id = $1 AND usuario_id = $2 AND jornada_id = $3
         `;
-        const { rows: plantillas } = await pool.query(queryPlantilla, [liga_id, usuario_id, jornada_id]);
+        const { rows: plantillas } = await pool.query(queryPlantilla, [
+            liga_id,
+            usuario_id,
+            jornada_id,
+        ]);
 
         if (plantillas.length === 0) {
             // No hay plantilla guardada aún para esta jornada
@@ -41,30 +54,33 @@ const cargarAlineacion = async (req, res) => {
             JOIN equipos e ON j.equipo_id = e.id
             WHERE pj.plantilla_id = $1
         `;
-        const { rows: jugadores } = await pool.query(queryJugadores, [plantilla.id]);
+        const { rows: jugadores } = await pool.query(queryJugadores, [
+            plantilla.id,
+        ]);
 
         // 3. Procesamos la foto de los jugadores
         const jugadoresProcesados = await Promise.all(
             jugadores.map(async (jugador) => {
-                const fotoUrl = await getDownloadUrl('jugadores/' + jugador.foto_url);
+                const fotoUrl = await getDownloadUrl("jugadores/" + jugador.foto_url);
                 jugador.foto = fotoUrl;
 
-                const equipoFotoUrl = await getDownloadUrl('equipos/' + jugador.equipo_escudo_url);
+                const equipoFotoUrl = await getDownloadUrl(
+                    "equipos/" + jugador.equipo_escudo_url,
+                );
                 jugador.equipo_escudo = equipoFotoUrl;
-                
+
                 return jugador;
-            })
-        )
+            }),
+        );
 
         return res.json({
             existe: true,
             formacion_id: plantilla.formacion_id,
-            jugadores: jugadoresProcesados
+            jugadores: jugadoresProcesados,
         });
-
     } catch (error) {
-        console.error('Error al cargar alineación:', error);
-        return res.status(500).json({ error: 'Error interno del servidor.' });
+        console.error("Error al cargar alineación:", error);
+        return res.status(500).json({ error: "Error interno del servidor." });
     }
 };
 
@@ -73,7 +89,12 @@ const cargarAlineacionesJornadas = async (req, res) => {
         const { liga_id, usuario_id, jornada_id } = req.body;
 
         if (!liga_id || !usuario_id || !jornada_id) {
-            return res.status(400).json({ error: 'Faltan parámetros requeridos.' });
+            return res.status(400).json({ error: "Faltan parámetros requeridos." });
+        }
+
+        // Se puede ver la alineación de otro miembro (clasificación), pero solo dentro de tus ligas
+        if (!(await esMiembroLiga(liga_id, req.userId))) {
+            return noEsMiembro(res);
         }
 
         const query = `
@@ -118,51 +139,65 @@ const cargarAlineacionesJornadas = async (req, res) => {
         ORDER BY pu.jornada_id DESC
         `;
 
-        const { rows: plantillas } = await pool.query(query, [liga_id, usuario_id, jornada_id]);
+        const { rows: plantillas } = await pool.query(query, [
+            liga_id,
+            usuario_id,
+            jornada_id,
+        ]);
 
         // 2. Procesamos la foto de los jugadores
         const plantillasProcesadas = await Promise.all(
             plantillas.map(async (plantilla) => {
                 const jugadoresProcesados = await Promise.all(
-                plantilla.jugadores.map(async (jugador) => ({
-                    ...jugador,
-                    foto: jugador.foto ? await getDownloadUrl('jugadores/' + jugador.foto) : null,
-                    equipo_escudo: jugador.equipo_escudo_url ? await getDownloadUrl('equipos/' + jugador.equipo_escudo_url) : null
-                }))
+                    plantilla.jugadores.map(async (jugador) => ({
+                        ...jugador,
+                        foto: jugador.foto
+                            ? await getDownloadUrl("jugadores/" + jugador.foto)
+                            : null,
+                        equipo_escudo: jugador.equipo_escudo_url
+                            ? await getDownloadUrl("equipos/" + jugador.equipo_escudo_url)
+                            : null,
+                    })),
                 );
 
                 return {
-                ...plantilla,
-                jugadores: jugadoresProcesados
+                    ...plantilla,
+                    jugadores: jugadoresProcesados,
                 };
-            })
+            }),
         );
 
         return res.json({
             ok: true,
-            data: plantillasProcesadas
+            data: plantillasProcesadas,
         });
-
     } catch (error) {
-        console.error('Error al cargar alineaciones:', error);
-        return res.status(500).json({ error: 'Error interno del servidor.' });
+        console.error("Error al cargar alineaciones:", error);
+        return res.status(500).json({ error: "Error interno del servidor." });
     }
 };
 
 const guardarAlineacion = async (req, res) => {
     try {
-        const { liga_id, usuario_id, jornada_id, formacion_id, jugadores } = req.body;
+        const { liga_id, jornada_id, formacion_id, jugadores } = req.body;
+        // Solo puedes guardar TU alineación: el usuario sale del token, nunca del body
+        const usuario_id = req.userId;
 
         // Validación básica
-        if (!liga_id || !usuario_id || !jornada_id || !formacion_id || !Array.isArray(jugadores)) {
-            return res.status(400).json({ error: 'Faltan campos obligatorios para guardar la alineación.' });
+        if (!liga_id || !jornada_id || !formacion_id || !Array.isArray(jugadores)) {
+            return res.status(400).json({
+                error: "Faltan campos obligatorios para guardar la alineación.",
+            });
         }
 
-        // 1. Iniciamos la transacción SQL
-        await pool.query('BEGIN');
+        if (!(await esMiembroLiga(liga_id, usuario_id))) {
+            return noEsMiembro(res);
+        }
 
-        //2. Insertamos o actualizamos plantilla del usuario para la jornada
-        const queryPlantilla = `
+        // 1. Transacción real (una sola conexión para todas las consultas)
+        const plantillaId = await withTransaction(async (client) => {
+            //2. Insertamos o actualizamos plantilla del usuario para la jornada
+            const queryPlantilla = `
             INSERT INTO plantillas_usuario (liga_id, usuario_id, jornada_id, formacion_id)
             VALUES ($1, $2, $3, $4)
             ON CONFLICT (liga_id, usuario_id, jornada_id) 
@@ -170,53 +205,51 @@ const guardarAlineacion = async (req, res) => {
             RETURNING id;
         `;
 
-        const resPlantilla = await pool.query(queryPlantilla, [
-            liga_id,
-            usuario_id,
-            jornada_id,
-            formacion_id
-        ]);
+            const resPlantilla = await client.query(queryPlantilla, [
+                liga_id,
+                usuario_id,
+                jornada_id,
+                formacion_id,
+            ]);
 
-        const plantillaId = resPlantilla.rows[0].id;
+            const plantillaId = resPlantilla.rows[0].id;
 
-        // 3. Limpiamos los jugadores guardados previamente en esta plantilla (si existían)
-        await pool.query(
-            'DELETE FROM plantilla_jugadores WHERE plantilla_id = $1',
-            [plantillaId]
-        );
+            // 3. Limpiamos los jugadores guardados previamente en esta plantilla (si existían)
+            await client.query(
+                "DELETE FROM plantilla_jugadores WHERE plantilla_id = $1",
+                [plantillaId],
+            );
 
-        // 4. Insertamos los nuevos jugadores seleccionados
-        const queryJugadores = `
+            // 4. Insertamos los nuevos jugadores seleccionados
+            const queryJugadores = `
             INSERT INTO plantilla_jugadores (plantilla_id, jugador_id, posicion, hueco_index)
             VALUES ($1, $2, $3, $4);
         `;
 
-        for (const slot of jugadores) {
-            if (slot.jugador_id) { // Solo insertamos los huecos que tengan jugador asignado
-                await pool.query(queryJugadores, [
-                    plantillaId,
-                    slot.jugador_id,
-                    slot.posicion,
-                    slot.hueco_index
-                ]);
+            for (const slot of jugadores) {
+                if (slot.jugador_id) {
+                    // Solo insertamos los huecos que tengan jugador asignado
+                    await client.query(queryJugadores, [
+                        plantillaId,
+                        slot.jugador_id,
+                        slot.posicion,
+                        slot.hueco_index,
+                    ]);
+                }
             }
-        }
 
-        // 5. Confirmamos todos los cambios en la base de datos
-        await pool.query('COMMIT');
+            return plantillaId;
+        }); // 5. COMMIT automático (o ROLLBACK si algo falla)
 
         return res.status(200).json({
             ok: true,
-            mensaje: 'Alineación guardada correctamente.',
+            mensaje: "Alineación guardada correctamente.",
             plantilla_id: plantillaId,
-
         });
-
     } catch (error) {
-        // Si algo falla, revertimos cualquier cambio efectuado
-        await pool.query('ROLLBACK');
-        console.error('Error al guardar alineación:', error);
-        return res.status(500).json({ error: 'Error al guardar la alineación.' });
+        // withTransaction ya ha revertido los cambios
+        console.error("Error al guardar alineación:", error);
+        return res.status(500).json({ error: "Error al guardar la alineación." });
     }
 };
 
@@ -225,18 +258,20 @@ const cargarOnceIdeal = async (req, res) => {
         const { jornada_id } = req.body;
 
         if (!jornada_id) {
-            return res.status(400).json({ error: 'Faltan parámetros requeridos.' });
+            return res.status(400).json({ error: "Faltan parámetros requeridos." });
         }
 
         const queryOnceIdeal = `
-            SELECT OI.id as once_ideal_id, F.formacion, OI.jornada_id, J.numero_jornada
+            SELECT OI.id as once_ideal_id, OI.formacion_id, F.formacion, OI.jornada_id, J.numero_jornada
             FROM once_ideal OI
             JOIN jornadas J ON J.id = OI.jornada_id
             JOIN formaciones F ON F.id = OI.formacion_id
             WHERE OI.jornada_id = $1;
         `;
 
-        const { rows: rowsOnceIdeal } = await pool.query(queryOnceIdeal, [jornada_id]);
+        const { rows: rowsOnceIdeal } = await pool.query(queryOnceIdeal, [
+            jornada_id,
+        ]);
 
         if (rowsOnceIdeal.length === 0) {
             return res.json({ existe: false, formacion_id: 1, jugadores: [] });
@@ -266,88 +301,174 @@ const cargarOnceIdeal = async (req, res) => {
             ORDER BY POI.hueco_index ASC;
         `;
 
-        const { rows: jugadores } = await pool.query(queryJugadores, [onceIdeal.once_ideal_id, jornada_id]);
+        const { rows: jugadores } = await pool.query(queryJugadores, [
+            onceIdeal.once_ideal_id,
+            jornada_id,
+        ]);
 
         const jugadoresProcesados = await Promise.all(
             jugadores.map(async (jugador) => {
                 if (jugador.foto_url !== null) {
-                    const fotoUrl = await getDownloadUrl('jugadores/' + jugador.foto_url);
+                    const fotoUrl = await getDownloadUrl("jugadores/" + jugador.foto_url);
                     jugador.foto = fotoUrl;
                 }
 
-                const equipoFotoUrl = await getDownloadUrl('equipos/' + jugador.equipo_escudo_url);
+                const equipoFotoUrl = await getDownloadUrl(
+                    "equipos/" + jugador.equipo_escudo_url,
+                );
                 jugador.equipo_escudo = equipoFotoUrl;
-                
-                return jugador;
-            })
-        )
 
-         return res.json({
+                return jugador;
+            }),
+        );
+
+        return res.json({
             existe: true,
             once_ideal_info: onceIdeal,
-            jugadores: jugadoresProcesados
+            jugadores: jugadoresProcesados,
         });
-
     } catch (error) {
-        console.error('Error al obtener el once ideal de la jornada:', error);
+        console.error("Error al obtener el once ideal de la jornada:", error);
         res.status(500).json({
             ok: false,
-            message: 'Error al obtener el once ideal de la jornada'
+            message: "Error al obtener el once ideal de la jornada",
         });
     }
 };
 
+/**
+ * Crea o actualiza el 11 ideal de una jornada (solo admin).
+ * Antes solo creaba: guardar sobre una jornada que ya lo tenía fallaba (jornada_id es UNIQUE).
+ */
 const guardarOnceIdeal = async (req, res) => {
     try {
-        const { jornada_id, formacion_id, jugadores } = req.body;
+        const jornadaId = Number(req.body.jornada_id);
+        const formacionId = Number(req.body.formacion_id);
+        const jugadores = Array.isArray(req.body.jugadores)
+            ? req.body.jugadores
+            : null;
 
-        if (!jornada_id || !formacion_id || !jugadores) {
-            return res.status(400).json({ error: 'Faltan parámetros requeridos.' });
+        if (
+            !Number.isInteger(jornadaId) ||
+            !Number.isInteger(formacionId) ||
+            !jugadores
+        ) {
+            return res.status(400).json({
+                ok: false,
+                message: "Faltan la jornada, la formación o los jugadores.",
+            });
         }
 
-        // 1. Iniciamos la transacción SQL
-        await pool.query('BEGIN');
+        // Exactamente 11 jugadores, sin repetir jugador ni hueco (huecos 0-10)
+        const ids = jugadores.map((s) => Number(s.jugador_id));
+        const huecos = jugadores.map((s) => Number(s.hueco_index));
+        if (
+            jugadores.length !== 11 ||
+            ids.some((id) => !Number.isInteger(id)) ||
+            huecos.some((h) => !Number.isInteger(h) || h < 0 || h > 10) ||
+            new Set(ids).size !== 11 ||
+            new Set(huecos).size !== 11
+        ) {
+            return res.status(400).json({
+                ok: false,
+                message: "El 11 ideal debe tener 11 jugadores distintos.",
+            });
+        }
 
-        // 2. Guardamos el once ideal en la base de datos
-        const queryOnceIdeal = `
-            INSERT INTO once_ideal (jornada_id, formacion_id)
-            VALUES ($1, $2)
-            RETURNING id;
-        `;
+        const { rowCount: formacionExiste } = await pool.query(
+            "SELECT 1 FROM formaciones WHERE id = $1",
+            [formacionId],
+        );
+        const { rowCount: jornadaExiste } = await pool.query(
+            "SELECT 1 FROM jornadas WHERE id = $1",
+            [jornadaId],
+        );
+        if (!formacionExiste || !jornadaExiste) {
+            return res
+                .status(404)
+                .json({ ok: false, message: "La jornada o la formación no existen." });
+        }
 
-        const { rows: rowsOnceIdeal } = await pool.query(queryOnceIdeal, [jornada_id, formacion_id]);
+        const actualizado = await withTransaction(async (client) => {
+            const { rows: existentes } = await client.query(
+                "SELECT id FROM once_ideal WHERE jornada_id = $1 FOR UPDATE",
+                [jornadaId],
+            );
 
-        const onceIdealId = rowsOnceIdeal[0].id;
-
-        const queryJugadores = `
-            INSERT INTO plantilla_onces_ideales (once_ideal_id, jugador_id, hueco_index)
-            VALUES ($1, $2, $3);
-        `;
-
-        for (const slot of jugadores) {
-            if (slot.jugador_id) { // Solo insertamos los huecos que tengan jugador asignado
-                await pool.query(queryJugadores, [
-                    onceIdealId,
-                    slot.jugador_id,
-                    slot.hueco_index
-                ]);
+            let onceIdealId;
+            if (existentes.length > 0) {
+                onceIdealId = existentes[0].id;
+                await client.query(
+                    "UPDATE once_ideal SET formacion_id = $1 WHERE id = $2",
+                    [formacionId, onceIdealId],
+                );
+                await client.query(
+                    "DELETE FROM plantilla_onces_ideales WHERE once_ideal_id = $1",
+                    [onceIdealId],
+                );
+            } else {
+                const { rows } = await client.query(
+                    "INSERT INTO once_ideal (jornada_id, formacion_id) VALUES ($1, $2) RETURNING id",
+                    [jornadaId, formacionId],
+                );
+                onceIdealId = rows[0].id;
             }
-        }
 
-        // 5. Confirmamos todos los cambios en la base de datos
-        await pool.query('COMMIT');
+            for (const slot of jugadores) {
+                await client.query(
+                    "INSERT INTO plantilla_onces_ideales (once_ideal_id, jugador_id, hueco_index) VALUES ($1, $2, $3)",
+                    [onceIdealId, Number(slot.jugador_id), Number(slot.hueco_index)],
+                );
+            }
+            return existentes.length > 0;
+        });
 
         res.status(200).json({
             ok: true,
-            message: 'Once ideal guardado exitosamente'
+            message: actualizado ? "11 ideal actualizado" : "11 ideal publicado",
         });
-
     } catch (error) {
-        console.error('Error al guardar el once ideal de la jornada:', error);
+        console.error("Error al guardar el once ideal de la jornada:", error);
         res.status(500).json({
             ok: false,
-            message: 'Error al guardar el once ideal de la jornada'
+            message: "Error al guardar el once ideal de la jornada",
         });
+    }
+};
+
+/** Elimina el 11 ideal de una jornada (solo admin). */
+const eliminarOnceIdeal = async (req, res) => {
+    try {
+        const jornadaId = Number(req.body.jornada_id);
+        if (!Number.isInteger(jornadaId)) {
+            return res.status(400).json({ ok: false, message: "Falta la jornada." });
+        }
+
+        const borrado = await withTransaction(async (client) => {
+            const { rows } = await client.query(
+                "SELECT id FROM once_ideal WHERE jornada_id = $1",
+                [jornadaId],
+            );
+            if (rows.length === 0) return false;
+            // plantilla_onces_ideales no tiene ON DELETE CASCADE: primero los jugadores
+            await client.query(
+                "DELETE FROM plantilla_onces_ideales WHERE once_ideal_id = $1",
+                [rows[0].id],
+            );
+            await client.query("DELETE FROM once_ideal WHERE id = $1", [rows[0].id]);
+            return true;
+        });
+
+        if (!borrado)
+            return res
+                .status(404)
+                .json({ ok: false, message: "Esa jornada no tiene 11 ideal." });
+        res.status(200).json({ ok: true, message: "11 ideal eliminado" });
+    } catch (error) {
+        console.error("Error al eliminar el once ideal:", error);
+        res
+            .status(500)
+            .json({ ok: false, message: "Error al eliminar el 11 ideal" });
     }
 };
 
@@ -356,5 +477,6 @@ module.exports = {
     cargarAlineacionesJornadas,
     guardarAlineacion,
     cargarOnceIdeal,
-    guardarOnceIdeal
+    guardarOnceIdeal,
+    eliminarOnceIdeal,
 };
