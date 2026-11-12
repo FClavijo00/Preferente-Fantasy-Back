@@ -1,104 +1,94 @@
+const crypto = require("node:crypto");
 const pool = require("../config/db");
 const { getDownloadUrl } = require("../config/s3");
+const {
+    esMiembroLiga,
+    esCreadorLiga,
+    withTransaction,
+} = require("../services/permisos");
+
+const soloCreador = (res) =>
+    res
+        .status(403)
+        .json({
+            ok: false,
+            message: "Solo el creador de la liga puede hacer esto.",
+        });
 
 const abandonarLiga = async (req, res) => {
     try {
-        const { liga_id, user_id } = req.body;
+        const { liga_id } = req.body;
+        // Solo puedes abandonar una liga tú mismo: el usuario sale del token
+        const user_id = req.userId;
 
-        if (!liga_id || !user_id) {
+        if (!liga_id) {
             return res.status(400).json({ error: "Faltan parámetros requeridos." });
         }
 
-        await pool.query("BEGIN");
-
-        // 1. Obtener el creador de la liga y el recuento de usuarios
-        const ligaQuery = `
-            SELECT creado_por as creador_id,
-            (SELECT COUNT(*) FROM liga_usuarios WHERE liga_id = $1) as total_usuarios
-            FROM ligas
-            WHERE id = $1;
-        `;
-        const ligaResult = await pool.query(ligaQuery, [liga_id]);
-
-        if (ligaResult.rows.length === 0) {
-            await pool.query("ROLLBACK");
-            return res.status(404).json({
-                ok: false,
-                message: "Liga no encontrada.",
-            });
-        }
-
-        const { creador_id, total_usuarios } = ligaResult.rows[0];
-        const numUsuarios = parseInt(total_usuarios, 10);
-
-        // 2. Verificar que el usuario pertenece realmente a la liga
-        const miembroQuery = `
-            SELECT 1 FROM liga_usuarios WHERE liga_id = $1 AND usuario_id = $2;
-        `;
-        const miembroResult = await pool.query(miembroQuery, [liga_id, user_id]);
-
-        if (miembroResult.rows.length === 0) {
-            await pool.query("ROLLBACK");
-            return res.status(404).json({
-                ok: false,
-                message: "El usuario no forma parte de esta liga.",
-            });
-        }
-
-        // CASO A : Es el único usuario en la liga
-        if (numUsuarios === 1) {
-            // Eliminar plantillas del usuario
-            await pool.query(
-                `DELETE FROM plantillas_usuario WHERE liga_id = $1 AND usuario_id = $2;`,
-                [liga_id, user_id],
+        const resultado = await withTransaction(async (client) => {
+            // 1. Obtener el creador de la liga y el recuento de usuarios
+            const ligaResult = await client.query(
+                `SELECT creado_por AS creador_id,
+                    (SELECT COUNT(*) FROM liga_usuarios WHERE liga_id = $1) AS total_usuarios
+                 FROM ligas WHERE id = $1;`,
+                [liga_id],
             );
-            // Eliminar al usuario de la liga
-            await pool.query(
-                `DELETE FROM liga_usuarios WHERE liga_id = $1 AND usuario_id = $2;`,
-                [liga_id, user_id],
-            );
-            // Eliminar la liga por completo
-            await pool.query(`DELETE FROM ligas WHERE id = $1;`, [liga_id]);
-        }
 
-        // CASO B : Hay más usuarios en la liga
-        else {
-            // Si el usuario que abandona es el creador, delegar al siguiente usuario que entró
-            if (creador_id === user_id) {
-                const siguienteUsuarioQuery = `
-                    SELECT usuario_id 
-                    FROM liga_usuarios 
-                    WHERE liga_id = $1 AND usuario_id != $2 
-                    ORDER BY joined_at ASC 
-                    LIMIT 1;
-                `;
-                const sigResult = await pool.query(siguienteUsuarioQuery, [
-                    liga_id,
-                    user_id,
-                ]);
-
-                if (sigResult.rows.length > 0) {
-                    const nuevoCreadorId = sigResult.rows[0].usuario_id;
-                    await pool.query(`UPDATE ligas SET creado_por = $1 WHERE id = $2;`, [
-                        nuevoCreadorId,
-                        liga_id,
-                    ]);
-                }
+            if (ligaResult.rows.length === 0) {
+                return { status: 404, message: "Liga no encontrada." };
             }
 
-            // Eliminar plantillas del usuario que abandona
-            await pool.query(
-                `DELETE FROM plantillas_usuario WHERE liga_id = $1 AND usuario_id = $2;`,
-                [liga_id, user_id],
-            );
-            // Eliminar la relación del usuario con la liga
-            await pool.query(
-                `DELETE FROM liga_usuarios WHERE liga_id = $1 AND usuario_id = $2;`,
-                [liga_id, user_id],
-            );
-        }
+            const { creador_id, total_usuarios } = ligaResult.rows[0];
+            const numUsuarios = parseInt(total_usuarios, 10);
 
-        await pool.query("COMMIT");
+            // 2. Verificar que el usuario pertenece realmente a la liga
+            const miembroResult = await client.query(
+                `SELECT 1 FROM liga_usuarios WHERE liga_id = $1 AND usuario_id = $2;`,
+                [liga_id, user_id],
+            );
+
+            if (miembroResult.rows.length === 0) {
+                return {
+                    status: 404,
+                    message: "El usuario no forma parte de esta liga.",
+                };
+            }
+
+            if (numUsuarios === 1) {
+                // CASO A: es el único usuario -> se elimina la liga entera
+                // (liga_usuarios y plantillas_usuario caen en cascada)
+                await client.query(`DELETE FROM ligas WHERE id = $1;`, [liga_id]);
+            } else {
+                // CASO B: hay más usuarios. Si abandona el creador, la liga pasa al siguiente que entró
+                if (creador_id === user_id) {
+                    await client.query(
+                        `UPDATE ligas SET creado_por = (
+                            SELECT usuario_id FROM liga_usuarios
+                            WHERE liga_id = $1 AND usuario_id <> $2
+                            ORDER BY joined_at ASC LIMIT 1
+                         ) WHERE id = $1;`,
+                        [liga_id, user_id],
+                    );
+                }
+
+                await client.query(
+                    `DELETE FROM plantillas_usuario WHERE liga_id = $1 AND usuario_id = $2;`,
+                    [liga_id, user_id],
+                );
+                await client.query(
+                    `DELETE FROM liga_usuarios WHERE liga_id = $1 AND usuario_id = $2;`,
+                    [liga_id, user_id],
+                );
+            }
+
+            return { status: 200 };
+        });
+
+        if (resultado.status !== 200) {
+            return res
+                .status(resultado.status)
+                .json({ ok: false, message: resultado.message });
+        }
 
         res.status(200).json({
             ok: true,
@@ -119,6 +109,10 @@ const eliminarLiga = async (req, res) => {
 
         if (!liga_id) {
             return res.status(400).json({ error: "Faltan parámetros requeridos." });
+        }
+
+        if (!(await esCreadorLiga(liga_id, req.userId))) {
+            return soloCreador(res);
         }
 
         const query = `
@@ -158,7 +152,8 @@ const getMisLigas = async (req, res) => {
             L.nombre, 
             L.codigo_acceso, 
             L.privada, 
-            C.nombre`;
+            C.nombre
+        ORDER BY L.nombre`;
 
         const { rows } = await pool.query(query, [userId]);
 
@@ -198,7 +193,8 @@ const getLigasAbiertas = async (req, res) => {
                 L.nombre, 
                 L.codigo_acceso, 
                 L.privada, 
-                C.nombre`;
+                C.nombre
+            ORDER BY total_participantes DESC, L.nombre`;
 
         const { rows } = await pool.query(query, [userId]);
         res.status(200).json({
@@ -216,31 +212,48 @@ const getLigasAbiertas = async (req, res) => {
 
 const crearLiga = async (req, res) => {
     try {
-        const { nombre_campeonato, privado, userId } = req.body;
+        const { nombre_campeonato, privado } = req.body;
+        // El creador es siempre el usuario del token
+        const userId = req.userId;
 
-        let codigo = null;
-
-        if (privado) {
-            codigo = generarCodigoUnico();
+        if (!nombre_campeonato || !nombre_campeonato.trim()) {
+            return res
+                .status(400)
+                .json({ ok: false, message: "El nombre de la liga es obligatorio." });
         }
 
         const query =
             "INSERT INTO ligas (nombre, privada, codigo_acceso, competicion_id, creado_por) VALUES ($1, $2, $3, $4, $5) RETURNING *";
-        const { rows } = await pool.query(query, [
-            nombre_campeonato,
-            privado,
-            codigo,
-            1,
-            userId,
-        ]);
+        // Crear la liga y unir al creador van juntos: o las dos cosas o ninguna
+        const liga = await withTransaction(async (client) => {
+            const codigo = privado ? await generarCodigoUnico(client) : null;
 
-        const query2 =
-            "INSERT INTO liga_usuarios (liga_id, usuario_id) VALUES ($1, $2)";
-        await pool.query(query2, [rows[0].id, userId]);
+            const { rows } = await client.query(query, [
+                nombre_campeonato.trim(),
+                !!privado,
+                codigo,
+                1,
+                userId,
+            ]);
+
+            await client.query(
+                "INSERT INTO liga_usuarios (liga_id, usuario_id) VALUES ($1, $2)",
+                [rows[0].id, userId],
+            );
+
+            return rows[0];
+        });
 
         res.status(200).json({
             ok: true,
             message: "Liga creada exitosamente",
+            // El front lo usa para enseñar (y compartir) el código de acceso
+            data: {
+                id: liga.id,
+                nombre_liga: liga.nombre,
+                privada: liga.privada,
+                codigo_acceso: liga.codigo_acceso,
+            },
         });
     } catch (error) {
         console.error("Error al crear la liga:", error);
@@ -253,11 +266,21 @@ const crearLiga = async (req, res) => {
 
 const unirseALiga = async (req, res) => {
     try {
-        const { codigo, ligaId, userId } = req.body;
+        const { ligaId } = req.body;
+        const codigo =
+            typeof req.body.codigo === "string"
+                ? req.body.codigo.trim().toUpperCase()
+                : null;
+        // Solo puedes unirte tú mismo: el usuario sale del token
+        const userId = req.userId;
+
+        let ligaDestino;
 
         if (codigo) {
-            const query = "SELECT * FROM ligas WHERE codigo_acceso = $1";
-            const { rows } = await pool.query(query, [codigo]);
+            const { rows } = await pool.query(
+                "SELECT id FROM ligas WHERE codigo_acceso = $1",
+                [codigo],
+            );
 
             if (rows.length === 0) {
                 return res.status(404).json({
@@ -266,16 +289,40 @@ const unirseALiga = async (req, res) => {
                 });
             }
 
-            const liga = rows[0];
-
-            const query2 =
-                "INSERT INTO liga_usuarios (liga_id, usuario_id) VALUES ($1, $2)";
-            await pool.query(query2, [liga.id, userId]);
+            ligaDestino = rows[0].id;
         } else {
-            const query =
-                "INSERT INTO liga_usuarios (liga_id, usuario_id) VALUES ($1, $2)";
-            await pool.query(query, [ligaId, userId]);
+            // Sin código solo se puede entrar en ligas públicas
+            const { rows } = await pool.query(
+                "SELECT id, privada FROM ligas WHERE id = $1",
+                [ligaId],
+            );
+
+            if (rows.length === 0) {
+                return res
+                    .status(404)
+                    .json({ ok: false, message: "Liga no encontrada." });
+            }
+
+            if (rows[0].privada) {
+                return res.status(403).json({
+                    ok: false,
+                    message: "Esta liga es privada: necesitas su código de acceso.",
+                });
+            }
+
+            ligaDestino = rows[0].id;
         }
+
+        if (await esMiembroLiga(ligaDestino, userId)) {
+            return res
+                .status(400)
+                .json({ ok: false, message: "Ya formas parte de esta liga." });
+        }
+
+        await pool.query(
+            "INSERT INTO liga_usuarios (liga_id, usuario_id) VALUES ($1, $2)",
+            [ligaDestino, userId],
+        );
 
         res.status(200).json({
             ok: true,
@@ -298,13 +345,19 @@ const cargarUsuariosLiga = async (req, res) => {
             return res.status(400).json({ error: "Faltan parámetros requeridos." });
         }
 
+        if (!(await esMiembroLiga(liga_id, req.userId))) {
+            return res
+                .status(403)
+                .json({ ok: false, message: "No perteneces a esta liga." });
+        }
+
+        // Sin email: los miembros de una liga no deben ver el correo de los demás
         const query = `
-            SELECT 
+            SELECT
                 u.id AS usuario_id,
                 u.nombre_usuario,
                 u.nombre_club,
-                u.image_url,
-                u.email
+                u.image_url
             FROM liga_usuarios lu
             JOIN usuarios u ON u.id = lu.usuario_id
             WHERE lu.liga_id = $1
@@ -343,19 +396,36 @@ const cargarUsuariosLiga = async (req, res) => {
 
 const eliminarUsuarioLiga = async (req, res) => {
     try {
+        // user_id aquí es el usuario al que se EXPULSA, no quien hace la petición
         const { liga_id, user_id } = req.body;
 
         if (!liga_id || !user_id) {
             return res.status(400).json({ error: "Faltan parámetros requeridos." });
         }
 
-        const query =
-            "DELETE FROM liga_usuarios WHERE liga_id = $1 AND usuario_id = $2";
-        await pool.query(query, [liga_id, user_id]);
+        if (!(await esCreadorLiga(liga_id, req.userId))) {
+            return soloCreador(res);
+        }
 
-        const query2 = 
-            "DELETE FROM plantillas_usuario WHERE liga_id = $1 AND usuario_id = $2;"
-        await pool.query(query2, [liga_id, user_id]);
+        if (Number(user_id) === req.userId) {
+            return res
+                .status(400)
+                .json({
+                    ok: false,
+                    message: "No puedes expulsarte a ti mismo: usa Abandonar liga.",
+                });
+        }
+
+        await withTransaction(async (client) => {
+            await client.query(
+                "DELETE FROM liga_usuarios WHERE liga_id = $1 AND usuario_id = $2",
+                [liga_id, user_id],
+            );
+            await client.query(
+                "DELETE FROM plantillas_usuario WHERE liga_id = $1 AND usuario_id = $2;",
+                [liga_id, user_id],
+            );
+        });
 
         res.status(200).json({
             ok: true,
@@ -378,13 +448,14 @@ const editarLiga = async (req, res) => {
             return res.status(400).json({ error: "Faltan parámetros requeridos." });
         }
 
+        if (!(await esCreadorLiga(liga_id, req.userId))) {
+            return soloCreador(res);
+        }
+
         if (codigo_acceso && privada) {
             const searchCode =
                 "SELECT * FROM ligas WHERE codigo_acceso = $1 AND id != $2";
-            const { rows } = await pool.query(searchCode, [
-                codigo_acceso,
-                liga_id,
-            ]);
+            const { rows } = await pool.query(searchCode, [codigo_acceso, liga_id]);
 
             if (rows.length > 0) {
                 return res.status(400).json({
@@ -397,12 +468,7 @@ const editarLiga = async (req, res) => {
         if (privada) {
             const query =
                 "UPDATE ligas SET nombre = $1, privada = $2, codigo_acceso = $3 WHERE id = $4";
-            await pool.query(query, [
-                nombre_liga,
-                privada,
-                codigo_acceso,
-                liga_id,
-            ]);
+            await pool.query(query, [nombre_liga, privada, codigo_acceso, liga_id]);
         } else {
             const query =
                 "UPDATE ligas SET nombre = $1, privada = $2, codigo_acceso = NULL WHERE id = $3";
@@ -422,15 +488,25 @@ const editarLiga = async (req, res) => {
     }
 };
 
-const generarCodigoUnico = () => {
-    // Genera un bloque aleatorio en base 36 y extrae 4 caracteres
-    const aleatorio = Math.random()
-        .toString(36)
-        .substring(2, 6)
-        .padEnd(4, "0")
-        .toUpperCase();
+// Sin 0/O ni 1/I para que no se confundan al dictarlo o copiarlo a mano
+const ALFABETO_CODIGO = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-    return `PF-${aleatorio}`;
+/** Genera un código PF-XXXX que no use ninguna otra liga. */
+const generarCodigoUnico = async (client) => {
+    for (let intento = 0; intento < 20; intento++) {
+        let aleatorio = "";
+        for (let i = 0; i < 4; i++) {
+            aleatorio += ALFABETO_CODIGO[crypto.randomInt(ALFABETO_CODIGO.length)];
+        }
+        const codigo = `PF-${aleatorio}`;
+
+        const { rowCount } = await client.query(
+            "SELECT 1 FROM ligas WHERE codigo_acceso = $1",
+            [codigo],
+        );
+        if (rowCount === 0) return codigo;
+    }
+    throw new Error("No se ha podido generar un código de liga único");
 };
 
 module.exports = {
@@ -442,5 +518,5 @@ module.exports = {
     getLigasAbiertas,
     unirseALiga,
     eliminarUsuarioLiga,
-    editarLiga
+    editarLiga,
 };
