@@ -36,6 +36,20 @@ app.use('/api/alineaciones', alineacionesRoutes);
 const clasificacionesRoutes = require('../routes/clasificaciones.routes');
 app.use('/api/clasificaciones', clasificacionesRoutes);
 
+// Errores no controlados (p. ej. una foto que supera el límite de subida): siempre en JSON,
+// nunca la página de error de Express con la traza
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  if (err && err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ ok: false, message: 'La foto es demasiado grande (máximo 5 MB).' });
+  }
+  if (err && err.name === 'MulterError') {
+    return res.status(400).json({ ok: false, message: 'No se ha podido procesar el archivo enviado.' });
+  }
+  console.error('Error no controlado:', err);
+  res.status(500).json({ ok: false, message: 'Error interno del servidor' });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor backend corriendo en el puerto ${PORT}`);
