@@ -1,0 +1,1434 @@
+{
+ "competicion": "1ª Andaluza Senior (Jaén) 2026/2027",
+ "fuente": "https://www.lapreferente.com/C26704-1/primera-andaluza-jaen/calendario.html",
+ "jornadas": [
+  {
+   "numero": 1,
+   "fecha": "2026-09-06",
+   "partidos": [
+    {
+     "local": "CD VILCHES",
+     "visitante": "UD CAZORLA"
+    },
+    {
+     "local": "CD ÚBEDA VIVA",
+     "visitante": "ILITURGI CF 2016"
+    },
+    {
+     "local": "JAMILENA ATCO.",
+     "visitante": "CD TUGIA JUEGO LIMPIO"
+    },
+    {
+     "local": "CD JABALQUINTO",
+     "visitante": "CD CASTELLAR ÍBERO"
+    },
+    {
+     "local": "CAROLINENSE CD",
+     "visitante": "CD ATLÉTICO BAILÉN 1808"
+    },
+    {
+     "local": "JÓDAR CF",
+     "visitante": "INTER DE JAÉN CF"
+    },
+    {
+     "local": "CD VILLANUEVA",
+     "visitante": "BEGIJAR CF"
+    },
+    {
+     "local": "CD TUCCITANA",
+     "visitante": "REAL JAÉN CF SAD \"B\""
+    },
+    {
+     "local": "CD CAMPILLO DEL RÍO CF",
+     "visitante": "LINARES DEPORTIVO SAD \"B\""
+    }
+   ]
+  },
+  {
+   "numero": 2,
+   "fecha": "2026-09-13",
+   "partidos": [
+    {
+     "local": "UD CAZORLA",
+     "visitante": "CD CAMPILLO DEL RÍO CF"
+    },
+    {
+     "local": "ILITURGI CF 2016",
+     "visitante": "CD VILCHES"
+    },
+    {
+     "local": "CD TUGIA JUEGO LIMPIO",
+     "visitante": "CD ÚBEDA VIVA"
+    },
+    {
+     "local": "CD CASTELLAR ÍBERO",
+     "visitante": "JAMILENA ATCO."
+    },
+    {
+     "local": "CD JABALQUINTO",
+     "visitante": "CD ATLÉTICO BAILÉN 1808"
+    },
+    {
+     "local": "INTER DE JAÉN CF",
+     "visitante": "CAROLINENSE CD"
+    },
+    {
+     "local": "BEGIJAR CF",
+     "visitante": "JÓDAR CF"
+    },
+    {
+     "local": "REAL JAÉN CF SAD \"B\"",
+     "visitante": "CD VILLANUEVA"
+    },
+    {
+     "local": "LINARES DEPORTIVO SAD \"B\"",
+     "visitante": "CD TUCCITANA"
+    }
+   ]
+  },
+  {
+   "numero": 3,
+   "fecha": "2026-09-20",
+   "partidos": [
+    {
+     "local": "UD CAZORLA",
+     "visitante": "ILITURGI CF 2016"
+    },
+    {
+     "local": "CD VILCHES",
+     "visitante": "CD TUGIA JUEGO LIMPIO"
+    },
+    {
+     "local": "CD ÚBEDA VIVA",
+     "visitante": "CD CASTELLAR ÍBERO"
+    },
+    {
+     "local": "JAMILENA ATCO.",
+     "visitante": "CD ATLÉTICO BAILÉN 1808"
+    },
+    {
+     "local": "CD JABALQUINTO",
+     "visitante": "INTER DE JAÉN CF"
+    },
+    {
+     "local": "CAROLINENSE CD",
+     "visitante": "BEGIJAR CF"
+    },
+    {
+     "local": "JÓDAR CF",
+     "visitante": "REAL JAÉN CF SAD \"B\""
+    },
+    {
+     "local": "CD VILLANUEVA",
+     "visitante": "LINARES DEPORTIVO SAD \"B\""
+    },
+    {
+     "local": "CD CAMPILLO DEL RÍO CF",
+     "visitante": "CD TUCCITANA"
+    }
+   ]
+  },
+  {
+   "numero": 4,
+   "fecha": "2026-09-27",
+   "partidos": [
+    {
+     "local": "ILITURGI CF 2016",
+     "visitante": "CD CAMPILLO DEL RÍO CF"
+    },
+    {
+     "local": "CD TUGIA JUEGO LIMPIO",
+     "visitante": "UD CAZORLA"
+    },
+    {
+     "local": "CD CASTELLAR ÍBERO",
+     "visitante": "CD VILCHES"
+    },
+    {
+     "local": "CD ÚBEDA VIVA",
+     "visitante": "CD ATLÉTICO BAILÉN 1808"
+    },
+    {
+     "local": "INTER DE JAÉN CF",
+     "visitante": "JAMILENA ATCO."
+    },
+    {
+     "local": "BEGIJAR CF",
+     "visitante": "CD JABALQUINTO"
+    },
+    {
+     "local": "REAL JAÉN CF SAD \"B\"",
+     "visitante": "CAROLINENSE CD"
+    },
+    {
+     "local": "LINARES DEPORTIVO SAD \"B\"",
+     "visitante": "JÓDAR CF"
+    },
+    {
+     "local": "CD TUCCITANA",
+     "visitante": "CD VILLANUEVA"
+    }
+   ]
+  },
+  {
+   "numero": 5,
+   "fecha": "2026-10-04",
+   "partidos": [
+    {
+     "local": "ILITURGI CF 2016",
+     "visitante": "CD TUGIA JUEGO LIMPIO"
+    },
+    {
+     "local": "UD CAZORLA",
+     "visitante": "CD CASTELLAR ÍBERO"
+    },
+    {
+     "local": "CD VILCHES",
+     "visitante": "CD ATLÉTICO BAILÉN 1808"
+    },
+    {
+     "local": "CD ÚBEDA VIVA",
+     "visitante": "INTER DE JAÉN CF"
+    },
+    {
+     "local": "JAMILENA ATCO.",
+     "visitante": "BEGIJAR CF"
+    },
+    {
+     "local": "CD JABALQUINTO",
+     "visitante": "REAL JAÉN CF SAD \"B\""
+    },
+    {
+     "local": "CAROLINENSE CD",
+     "visitante": "LINARES DEPORTIVO SAD \"B\""
+    },
+    {
+     "local": "JÓDAR CF",
+     "visitante": "CD TUCCITANA"
+    },
+    {
+     "local": "CD CAMPILLO DEL RÍO CF",
+     "visitante": "CD VILLANUEVA"
+    }
+   ]
+  },
+  {
+   "numero": 6,
+   "fecha": "2026-10-09",
+   "partidos": [
+    {
+     "local": "CD TUGIA JUEGO LIMPIO",
+     "visitante": "CD CAMPILLO DEL RÍO CF"
+    },
+    {
+     "local": "CD CASTELLAR ÍBERO",
+     "visitante": "ILITURGI CF 2016"
+    },
+    {
+     "local": "CD ATLÉTICO BAILÉN 1808",
+     "visitante": "UD CAZORLA"
+    },
+    {
+     "local": "INTER DE JAÉN CF",
+     "visitante": "CD VILCHES"
+    },
+    {
+     "local": "BEGIJAR CF",
+     "visitante": "CD ÚBEDA VIVA"
+    },
+    {
+     "local": "REAL JAÉN CF SAD \"B\"",
+     "visitante": "JAMILENA ATCO."
+    },
+    {
+     "local": "LINARES DEPORTIVO SAD \"B\"",
+     "visitante": "CD JABALQUINTO"
+    },
+    {
+     "local": "CD TUCCITANA",
+     "visitante": "CAROLINENSE CD"
+    },
+    {
+     "local": "CD VILLANUEVA",
+     "visitante": "JÓDAR CF"
+    }
+   ]
+  },
+  {
+   "numero": 7,
+   "fecha": "2026-10-12",
+   "partidos": [
+    {
+     "local": "CD TUGIA JUEGO LIMPIO",
+     "visitante": "CD CASTELLAR ÍBERO"
+    },
+    {
+     "local": "ILITURGI CF 2016",
+     "visitante": "CD ATLÉTICO BAILÉN 1808"
+    },
+    {
+     "local": "UD CAZORLA",
+     "visitante": "INTER DE JAÉN CF"
+    },
+    {
+     "local": "CD VILCHES",
+     "visitante": "BEGIJAR CF"
+    },
+    {
+     "local": "CD ÚBEDA VIVA",
+     "visitante": "REAL JAÉN CF SAD \"B\""
+    },
+    {
+     "local": "JAMILENA ATCO.",
+     "visitante": "LINARES DEPORTIVO SAD \"B\""
+    },
+    {
+     "local": "CD JABALQUINTO",
+     "visitante": "CD TUCCITANA"
+    },
+    {
+     "local": "CAROLINENSE CD",
+     "visitante": "CD VILLANUEVA"
+    },
+    {
+     "local": "CD CAMPILLO DEL RÍO CF",
+     "visitante": "JÓDAR CF"
+    }
+   ]
+  },
+  {
+   "numero": 8,
+   "fecha": "2026-10-18",
+   "partidos": [
+    {
+     "local": "CD CASTELLAR ÍBERO",
+     "visitante": "CD CAMPILLO DEL RÍO CF"
+    },
+    {
+     "local": "CD ATLÉTICO BAILÉN 1808",
+     "visitante": "CD TUGIA JUEGO LIMPIO"
+    },
+    {
+     "local": "INTER DE JAÉN CF",
+     "visitante": "ILITURGI CF 2016"
+    },
+    {
+     "local": "BEGIJAR CF",
+     "visitante": "UD CAZORLA"
+    },
+    {
+     "local": "REAL JAÉN CF SAD \"B\"",
+     "visitante": "CD VILCHES"
+    },
+    {
+     "local": "LINARES DEPORTIVO SAD \"B\"",
+     "visitante": "CD ÚBEDA VIVA"
+    },
+    {
+     "local": "CD TUCCITANA",
+     "visitante": "JAMILENA ATCO."
+    },
+    {
+     "local": "CD VILLANUEVA",
+     "visitante": "CD JABALQUINTO"
+    },
+    {
+     "local": "JÓDAR CF",
+     "visitante": "CAROLINENSE CD"
+    }
+   ]
+  },
+  {
+   "numero": 9,
+   "fecha": "2026-10-25",
+   "partidos": [
+    {
+     "local": "CD CASTELLAR ÍBERO",
+     "visitante": "CD ATLÉTICO BAILÉN 1808"
+    },
+    {
+     "local": "CD TUGIA JUEGO LIMPIO",
+     "visitante": "INTER DE JAÉN CF"
+    },
+    {
+     "local": "ILITURGI CF 2016",
+     "visitante": "BEGIJAR CF"
+    },
+    {
+     "local": "UD CAZORLA",
+     "visitante": "REAL JAÉN CF SAD \"B\""
+    },
+    {
+     "local": "CD VILCHES",
+     "visitante": "LINARES DEPORTIVO SAD \"B\""
+    },
+    {
+     "local": "CD ÚBEDA VIVA",
+     "visitante": "CD TUCCITANA"
+    },
+    {
+     "local": "JAMILENA ATCO.",
+     "visitante": "CD VILLANUEVA"
+    },
+    {
+     "local": "CD JABALQUINTO",
+     "visitante": "JÓDAR CF"
+    },
+    {
+     "local": "CD CAMPILLO DEL RÍO CF",
+     "visitante": "CAROLINENSE CD"
+    }
+   ]
+  },
+  {
+   "numero": 10,
+   "fecha": "2026-11-02",
+   "partidos": [
+    {
+     "local": "CD ATLÉTICO BAILÉN 1808",
+     "visitante": "CD CAMPILLO DEL RÍO CF"
+    },
+    {
+     "local": "INTER DE JAÉN CF",
+     "visitante": "CD CASTELLAR ÍBERO"
+    },
+    {
+     "local": "BEGIJAR CF",
+     "visitante": "CD TUGIA JUEGO LIMPIO"
+    },
+    {
+     "local": "REAL JAÉN CF SAD \"B\"",
+     "visitante": "ILITURGI CF 2016"
+    },
+    {
+     "local": "LINARES DEPORTIVO SAD \"B\"",
+     "visitante": "UD CAZORLA"
+    },
+    {
+     "local": "CD TUCCITANA",
+     "visitante": "CD VILCHES"
+    },
+    {
+     "local": "CD VILLANUEVA",
+     "visitante": "CD ÚBEDA VIVA"
+    },
+    {
+     "local": "JÓDAR CF",
+     "visitante": "JAMILENA ATCO."
+    },
+    {
+     "local": "CAROLINENSE CD",
+     "visitante": "CD JABALQUINTO"
+    }
+   ]
+  },
+  {
+   "numero": 11,
+   "fecha": "2026-11-08",
+   "partidos": [
+    {
+     "local": "ILITURGI CF 2016",
+     "visitante": "LINARES DEPORTIVO SAD \"B\""
+    },
+    {
+     "local": "CD CASTELLAR ÍBERO",
+     "visitante": "BEGIJAR CF"
+    },
+    {
+     "local": "CD VILCHES",
+     "visitante": "CD VILLANUEVA"
+    },
+    {
+     "local": "UD CAZORLA",
+     "visitante": "CD TUCCITANA"
+    },
+    {
+     "local": "JAMILENA ATCO.",
+     "visitante": "CAROLINENSE CD"
+    },
+    {
+     "local": "CD CAMPILLO DEL RÍO CF",
+     "visitante": "CD JABALQUINTO"
+    },
+    {
+     "local": "CD ÚBEDA VIVA",
+     "visitante": "JÓDAR CF"
+    },
+    {
+     "local": "CD TUGIA JUEGO LIMPIO",
+     "visitante": "REAL JAÉN CF SAD \"B\""
+    },
+    {
+     "local": "CD ATLÉTICO BAILÉN 1808",
+     "visitante": "INTER DE JAÉN CF"
+    }
+   ]
+  },
+  {
+   "numero": 12,
+   "fecha": "2026-11-15",
+   "partidos": [
+    {
+     "local": "CD TUCCITANA",
+     "visitante": "ILITURGI CF 2016"
+    },
+    {
+     "local": "BEGIJAR CF",
+     "visitante": "CD ATLÉTICO BAILÉN 1808"
+    },
+    {
+     "local": "CAROLINENSE CD",
+     "visitante": "CD ÚBEDA VIVA"
+    },
+    {
+     "local": "CD VILLANUEVA",
+     "visitante": "UD CAZORLA"
+    },
+    {
+     "local": "JAMILENA ATCO.",
+     "visitante": "CD JABALQUINTO"
+    },
+    {
+     "local": "LINARES DEPORTIVO SAD \"B\"",
+     "visitante": "CD TUGIA JUEGO LIMPIO"
+    },
+    {
+     "local": "JÓDAR CF",
+     "visitante": "CD VILCHES"
+    },
+    {
+     "local": "REAL JAÉN CF SAD \"B\"",
+     "visitante": "CD CASTELLAR ÍBERO"
+    },
+    {
+     "local": "INTER DE JAÉN CF",
+     "visitante": "CD CAMPILLO DEL RÍO CF"
+    }
+   ]
+  },
+  {
+   "numero": 13,
+   "fecha": "2026-11-22",
+   "partidos": [
+    {
+     "local": "INTER DE JAÉN CF",
+     "visitante": "BEGIJAR CF"
+    },
+    {
+     "local": "CD ATLÉTICO BAILÉN 1808",
+     "visitante": "REAL JAÉN CF SAD \"B\""
+    },
+    {
+     "local": "CD CASTELLAR ÍBERO",
+     "visitante": "LINARES DEPORTIVO SAD \"B\""
+    },
+    {
+     "local": "CD TUGIA JUEGO LIMPIO",
+     "visitante": "CD TUCCITANA"
+    },
+    {
+     "local": "ILITURGI CF 2016",
+     "visitante": "CD VILLANUEVA"
+    },
+    {
+     "local": "UD CAZORLA",
+     "visitante": "JÓDAR CF"
+    },
+    {
+     "local": "CD VILCHES",
+     "visitante": "CAROLINENSE CD"
+    },
+    {
+     "local": "CD ÚBEDA VIVA",
+     "visitante": "CD JABALQUINTO"
+    },
+    {
+     "local": "CD CAMPILLO DEL RÍO CF",
+     "visitante": "JAMILENA ATCO."
+    }
+   ]
+  },
+  {
+   "numero": 14,
+   "fecha": "2026-11-29",
+   "partidos": [
+    {
+     "local": "BEGIJAR CF",
+     "visitante": "CD CAMPILLO DEL RÍO CF"
+    },
+    {
+     "local": "REAL JAÉN CF SAD \"B\"",
+     "visitante": "INTER DE JAÉN CF"
+    },
+    {
+     "local": "LINARES DEPORTIVO SAD \"B\"",
+     "visitante": "CD ATLÉTICO BAILÉN 1808"
+    },
+    {
+     "local": "CD TUCCITANA",
+     "visitante": "CD CASTELLAR ÍBERO"
+    },
+    {
+     "local": "CD VILLANUEVA",
+     "visitante": "CD TUGIA JUEGO LIMPIO"
+    },
+    {
+     "local": "JÓDAR CF",
+     "visitante": "ILITURGI CF 2016"
+    },
+    {
+     "local": "CAROLINENSE CD",
+     "visitante": "UD CAZORLA"
+    },
+    {
+     "local": "CD JABALQUINTO",
+     "visitante": "CD VILCHES"
+    },
+    {
+     "local": "JAMILENA ATCO.",
+     "visitante": "CD ÚBEDA VIVA"
+    }
+   ]
+  },
+  {
+   "numero": 15,
+   "fecha": "2026-12-05",
+   "partidos": [
+    {
+     "local": "BEGIJAR CF",
+     "visitante": "REAL JAÉN CF SAD \"B\""
+    },
+    {
+     "local": "INTER DE JAÉN CF",
+     "visitante": "LINARES DEPORTIVO SAD \"B\""
+    },
+    {
+     "local": "CD ATLÉTICO BAILÉN 1808",
+     "visitante": "CD TUCCITANA"
+    },
+    {
+     "local": "CD CASTELLAR ÍBERO",
+     "visitante": "CD VILLANUEVA"
+    },
+    {
+     "local": "CD TUGIA JUEGO LIMPIO",
+     "visitante": "JÓDAR CF"
+    },
+    {
+     "local": "ILITURGI CF 2016",
+     "visitante": "CAROLINENSE CD"
+    },
+    {
+     "local": "UD CAZORLA",
+     "visitante": "CD JABALQUINTO"
+    },
+    {
+     "local": "CD VILCHES",
+     "visitante": "JAMILENA ATCO."
+    },
+    {
+     "local": "CD CAMPILLO DEL RÍO CF",
+     "visitante": "CD ÚBEDA VIVA"
+    }
+   ]
+  },
+  {
+   "numero": 16,
+   "fecha": "2026-12-13",
+   "partidos": [
+    {
+     "local": "CD CAMPILLO DEL RÍO CF",
+     "visitante": "REAL JAÉN CF SAD \"B\""
+    },
+    {
+     "local": "LINARES DEPORTIVO SAD \"B\"",
+     "visitante": "BEGIJAR CF"
+    },
+    {
+     "local": "CD TUCCITANA",
+     "visitante": "INTER DE JAÉN CF"
+    },
+    {
+     "local": "CD VILLANUEVA",
+     "visitante": "CD ATLÉTICO BAILÉN 1808"
+    },
+    {
+     "local": "JÓDAR CF",
+     "visitante": "CD CASTELLAR ÍBERO"
+    },
+    {
+     "local": "CAROLINENSE CD",
+     "visitante": "CD TUGIA JUEGO LIMPIO"
+    },
+    {
+     "local": "CD JABALQUINTO",
+     "visitante": "ILITURGI CF 2016"
+    },
+    {
+     "local": "JAMILENA ATCO.",
+     "visitante": "UD CAZORLA"
+    },
+    {
+     "local": "CD ÚBEDA VIVA",
+     "visitante": "CD VILCHES"
+    }
+   ]
+  },
+  {
+   "numero": 17,
+   "fecha": "2026-12-20",
+   "partidos": [
+    {
+     "local": "REAL JAÉN CF SAD \"B\"",
+     "visitante": "LINARES DEPORTIVO SAD \"B\""
+    },
+    {
+     "local": "BEGIJAR CF",
+     "visitante": "CD TUCCITANA"
+    },
+    {
+     "local": "INTER DE JAÉN CF",
+     "visitante": "CD VILLANUEVA"
+    },
+    {
+     "local": "CD ATLÉTICO BAILÉN 1808",
+     "visitante": "JÓDAR CF"
+    },
+    {
+     "local": "CD CASTELLAR ÍBERO",
+     "visitante": "CAROLINENSE CD"
+    },
+    {
+     "local": "CD TUGIA JUEGO LIMPIO",
+     "visitante": "CD JABALQUINTO"
+    },
+    {
+     "local": "ILITURGI CF 2016",
+     "visitante": "JAMILENA ATCO."
+    },
+    {
+     "local": "UD CAZORLA",
+     "visitante": "CD ÚBEDA VIVA"
+    },
+    {
+     "local": "CD VILCHES",
+     "visitante": "CD CAMPILLO DEL RÍO CF"
+    }
+   ]
+  },
+  {
+   "numero": 18,
+   "fecha": "2027-01-10",
+   "partidos": [
+    {
+     "local": "UD CAZORLA",
+     "visitante": "CD VILCHES"
+    },
+    {
+     "local": "ILITURGI CF 2016",
+     "visitante": "CD ÚBEDA VIVA"
+    },
+    {
+     "local": "CD TUGIA JUEGO LIMPIO",
+     "visitante": "JAMILENA ATCO."
+    },
+    {
+     "local": "CD CASTELLAR ÍBERO",
+     "visitante": "CD JABALQUINTO"
+    },
+    {
+     "local": "CD ATLÉTICO BAILÉN 1808",
+     "visitante": "CAROLINENSE CD"
+    },
+    {
+     "local": "INTER DE JAÉN CF",
+     "visitante": "JÓDAR CF"
+    },
+    {
+     "local": "BEGIJAR CF",
+     "visitante": "CD VILLANUEVA"
+    },
+    {
+     "local": "REAL JAÉN CF SAD \"B\"",
+     "visitante": "CD TUCCITANA"
+    },
+    {
+     "local": "LINARES DEPORTIVO SAD \"B\"",
+     "visitante": "CD CAMPILLO DEL RÍO CF"
+    }
+   ]
+  },
+  {
+   "numero": 19,
+   "fecha": "2027-01-17",
+   "partidos": [
+    {
+     "local": "CD CAMPILLO DEL RÍO CF",
+     "visitante": "UD CAZORLA"
+    },
+    {
+     "local": "CD VILCHES",
+     "visitante": "ILITURGI CF 2016"
+    },
+    {
+     "local": "CD ÚBEDA VIVA",
+     "visitante": "CD TUGIA JUEGO LIMPIO"
+    },
+    {
+     "local": "JAMILENA ATCO.",
+     "visitante": "CD CASTELLAR ÍBERO"
+    },
+    {
+     "local": "CD ATLÉTICO BAILÉN 1808",
+     "visitante": "CD JABALQUINTO"
+    },
+    {
+     "local": "CAROLINENSE CD",
+     "visitante": "INTER DE JAÉN CF"
+    },
+    {
+     "local": "JÓDAR CF",
+     "visitante": "BEGIJAR CF"
+    },
+    {
+     "local": "CD VILLANUEVA",
+     "visitante": "REAL JAÉN CF SAD \"B\""
+    },
+    {
+     "local": "CD TUCCITANA",
+     "visitante": "LINARES DEPORTIVO SAD \"B\""
+    }
+   ]
+  },
+  {
+   "numero": 20,
+   "fecha": "2027-01-24",
+   "partidos": [
+    {
+     "local": "ILITURGI CF 2016",
+     "visitante": "UD CAZORLA"
+    },
+    {
+     "local": "CD TUGIA JUEGO LIMPIO",
+     "visitante": "CD VILCHES"
+    },
+    {
+     "local": "CD CASTELLAR ÍBERO",
+     "visitante": "CD ÚBEDA VIVA"
+    },
+    {
+     "local": "CD ATLÉTICO BAILÉN 1808",
+     "visitante": "JAMILENA ATCO."
+    },
+    {
+     "local": "INTER DE JAÉN CF",
+     "visitante": "CD JABALQUINTO"
+    },
+    {
+     "local": "BEGIJAR CF",
+     "visitante": "CAROLINENSE CD"
+    },
+    {
+     "local": "REAL JAÉN CF SAD \"B\"",
+     "visitante": "JÓDAR CF"
+    },
+    {
+     "local": "LINARES DEPORTIVO SAD \"B\"",
+     "visitante": "CD VILLANUEVA"
+    },
+    {
+     "local": "CD TUCCITANA",
+     "visitante": "CD CAMPILLO DEL RÍO CF"
+    }
+   ]
+  },
+  {
+   "numero": 21,
+   "fecha": "2027-01-31",
+   "partidos": [
+    {
+     "local": "CD CAMPILLO DEL RÍO CF",
+     "visitante": "ILITURGI CF 2016"
+    },
+    {
+     "local": "UD CAZORLA",
+     "visitante": "CD TUGIA JUEGO LIMPIO"
+    },
+    {
+     "local": "CD VILCHES",
+     "visitante": "CD CASTELLAR ÍBERO"
+    },
+    {
+     "local": "CD ATLÉTICO BAILÉN 1808",
+     "visitante": "CD ÚBEDA VIVA"
+    },
+    {
+     "local": "JAMILENA ATCO.",
+     "visitante": "INTER DE JAÉN CF"
+    },
+    {
+     "local": "CD JABALQUINTO",
+     "visitante": "BEGIJAR CF"
+    },
+    {
+     "local": "CAROLINENSE CD",
+     "visitante": "REAL JAÉN CF SAD \"B\""
+    },
+    {
+     "local": "JÓDAR CF",
+     "visitante": "LINARES DEPORTIVO SAD \"B\""
+    },
+    {
+     "local": "CD VILLANUEVA",
+     "visitante": "CD TUCCITANA"
+    }
+   ]
+  },
+  {
+   "numero": 22,
+   "fecha": "2027-02-07",
+   "partidos": [
+    {
+     "local": "CD TUGIA JUEGO LIMPIO",
+     "visitante": "ILITURGI CF 2016"
+    },
+    {
+     "local": "CD CASTELLAR ÍBERO",
+     "visitante": "UD CAZORLA"
+    },
+    {
+     "local": "CD ATLÉTICO BAILÉN 1808",
+     "visitante": "CD VILCHES"
+    },
+    {
+     "local": "INTER DE JAÉN CF",
+     "visitante": "CD ÚBEDA VIVA"
+    },
+    {
+     "local": "BEGIJAR CF",
+     "visitante": "JAMILENA ATCO."
+    },
+    {
+     "local": "REAL JAÉN CF SAD \"B\"",
+     "visitante": "CD JABALQUINTO"
+    },
+    {
+     "local": "LINARES DEPORTIVO SAD \"B\"",
+     "visitante": "CAROLINENSE CD"
+    },
+    {
+     "local": "CD TUCCITANA",
+     "visitante": "JÓDAR CF"
+    },
+    {
+     "local": "CD VILLANUEVA",
+     "visitante": "CD CAMPILLO DEL RÍO CF"
+    }
+   ]
+  },
+  {
+   "numero": 23,
+   "fecha": "2027-02-14",
+   "partidos": [
+    {
+     "local": "CD CAMPILLO DEL RÍO CF",
+     "visitante": "CD TUGIA JUEGO LIMPIO"
+    },
+    {
+     "local": "ILITURGI CF 2016",
+     "visitante": "CD CASTELLAR ÍBERO"
+    },
+    {
+     "local": "UD CAZORLA",
+     "visitante": "CD ATLÉTICO BAILÉN 1808"
+    },
+    {
+     "local": "CD VILCHES",
+     "visitante": "INTER DE JAÉN CF"
+    },
+    {
+     "local": "CD ÚBEDA VIVA",
+     "visitante": "BEGIJAR CF"
+    },
+    {
+     "local": "JAMILENA ATCO.",
+     "visitante": "REAL JAÉN CF SAD \"B\""
+    },
+    {
+     "local": "CD JABALQUINTO",
+     "visitante": "LINARES DEPORTIVO SAD \"B\""
+    },
+    {
+     "local": "CAROLINENSE CD",
+     "visitante": "CD TUCCITANA"
+    },
+    {
+     "local": "JÓDAR CF",
+     "visitante": "CD VILLANUEVA"
+    }
+   ]
+  },
+  {
+   "numero": 24,
+   "fecha": "2027-02-21",
+   "partidos": [
+    {
+     "local": "CD CASTELLAR ÍBERO",
+     "visitante": "CD TUGIA JUEGO LIMPIO"
+    },
+    {
+     "local": "CD ATLÉTICO BAILÉN 1808",
+     "visitante": "ILITURGI CF 2016"
+    },
+    {
+     "local": "INTER DE JAÉN CF",
+     "visitante": "UD CAZORLA"
+    },
+    {
+     "local": "BEGIJAR CF",
+     "visitante": "CD VILCHES"
+    },
+    {
+     "local": "REAL JAÉN CF SAD \"B\"",
+     "visitante": "CD ÚBEDA VIVA"
+    },
+    {
+     "local": "LINARES DEPORTIVO SAD \"B\"",
+     "visitante": "JAMILENA ATCO."
+    },
+    {
+     "local": "CD TUCCITANA",
+     "visitante": "CD JABALQUINTO"
+    },
+    {
+     "local": "CD VILLANUEVA",
+     "visitante": "CAROLINENSE CD"
+    },
+    {
+     "local": "JÓDAR CF",
+     "visitante": "CD CAMPILLO DEL RÍO CF"
+    }
+   ]
+  },
+  {
+   "numero": 25,
+   "fecha": "2027-02-26",
+   "partidos": [
+    {
+     "local": "CD CAMPILLO DEL RÍO CF",
+     "visitante": "CD CASTELLAR ÍBERO"
+    },
+    {
+     "local": "CD TUGIA JUEGO LIMPIO",
+     "visitante": "CD ATLÉTICO BAILÉN 1808"
+    },
+    {
+     "local": "ILITURGI CF 2016",
+     "visitante": "INTER DE JAÉN CF"
+    },
+    {
+     "local": "UD CAZORLA",
+     "visitante": "BEGIJAR CF"
+    },
+    {
+     "local": "CD VILCHES",
+     "visitante": "REAL JAÉN CF SAD \"B\""
+    },
+    {
+     "local": "CD ÚBEDA VIVA",
+     "visitante": "LINARES DEPORTIVO SAD \"B\""
+    },
+    {
+     "local": "JAMILENA ATCO.",
+     "visitante": "CD TUCCITANA"
+    },
+    {
+     "local": "CD JABALQUINTO",
+     "visitante": "CD VILLANUEVA"
+    },
+    {
+     "local": "CAROLINENSE CD",
+     "visitante": "JÓDAR CF"
+    }
+   ]
+  },
+  {
+   "numero": 26,
+   "fecha": "2027-03-01",
+   "partidos": [
+    {
+     "local": "CD ATLÉTICO BAILÉN 1808",
+     "visitante": "CD CASTELLAR ÍBERO"
+    },
+    {
+     "local": "INTER DE JAÉN CF",
+     "visitante": "CD TUGIA JUEGO LIMPIO"
+    },
+    {
+     "local": "BEGIJAR CF",
+     "visitante": "ILITURGI CF 2016"
+    },
+    {
+     "local": "REAL JAÉN CF SAD \"B\"",
+     "visitante": "UD CAZORLA"
+    },
+    {
+     "local": "LINARES DEPORTIVO SAD \"B\"",
+     "visitante": "CD VILCHES"
+    },
+    {
+     "local": "CD TUCCITANA",
+     "visitante": "CD ÚBEDA VIVA"
+    },
+    {
+     "local": "CD VILLANUEVA",
+     "visitante": "JAMILENA ATCO."
+    },
+    {
+     "local": "JÓDAR CF",
+     "visitante": "CD JABALQUINTO"
+    },
+    {
+     "local": "CAROLINENSE CD",
+     "visitante": "CD CAMPILLO DEL RÍO CF"
+    }
+   ]
+  },
+  {
+   "numero": 27,
+   "fecha": "2027-03-07",
+   "partidos": [
+    {
+     "local": "CD CAMPILLO DEL RÍO CF",
+     "visitante": "CD ATLÉTICO BAILÉN 1808"
+    },
+    {
+     "local": "CD CASTELLAR ÍBERO",
+     "visitante": "INTER DE JAÉN CF"
+    },
+    {
+     "local": "CD TUGIA JUEGO LIMPIO",
+     "visitante": "BEGIJAR CF"
+    },
+    {
+     "local": "ILITURGI CF 2016",
+     "visitante": "REAL JAÉN CF SAD \"B\""
+    },
+    {
+     "local": "UD CAZORLA",
+     "visitante": "LINARES DEPORTIVO SAD \"B\""
+    },
+    {
+     "local": "CD VILCHES",
+     "visitante": "CD TUCCITANA"
+    },
+    {
+     "local": "CD ÚBEDA VIVA",
+     "visitante": "CD VILLANUEVA"
+    },
+    {
+     "local": "JAMILENA ATCO.",
+     "visitante": "JÓDAR CF"
+    },
+    {
+     "local": "CD JABALQUINTO",
+     "visitante": "CAROLINENSE CD"
+    }
+   ]
+  },
+  {
+   "numero": 28,
+   "fecha": "2027-03-14",
+   "partidos": [
+    {
+     "local": "INTER DE JAÉN CF",
+     "visitante": "CD ATLÉTICO BAILÉN 1808"
+    },
+    {
+     "local": "BEGIJAR CF",
+     "visitante": "CD CASTELLAR ÍBERO"
+    },
+    {
+     "local": "REAL JAÉN CF SAD \"B\"",
+     "visitante": "CD TUGIA JUEGO LIMPIO"
+    },
+    {
+     "local": "LINARES DEPORTIVO SAD \"B\"",
+     "visitante": "ILITURGI CF 2016"
+    },
+    {
+     "local": "CD TUCCITANA",
+     "visitante": "UD CAZORLA"
+    },
+    {
+     "local": "CD VILLANUEVA",
+     "visitante": "CD VILCHES"
+    },
+    {
+     "local": "JÓDAR CF",
+     "visitante": "CD ÚBEDA VIVA"
+    },
+    {
+     "local": "CAROLINENSE CD",
+     "visitante": "JAMILENA ATCO."
+    },
+    {
+     "local": "CD JABALQUINTO",
+     "visitante": "CD CAMPILLO DEL RÍO CF"
+    }
+   ]
+  },
+  {
+   "numero": 29,
+   "fecha": "2027-03-20",
+   "partidos": [
+    {
+     "local": "CD CAMPILLO DEL RÍO CF",
+     "visitante": "INTER DE JAÉN CF"
+    },
+    {
+     "local": "CD ATLÉTICO BAILÉN 1808",
+     "visitante": "BEGIJAR CF"
+    },
+    {
+     "local": "CD CASTELLAR ÍBERO",
+     "visitante": "REAL JAÉN CF SAD \"B\""
+    },
+    {
+     "local": "CD TUGIA JUEGO LIMPIO",
+     "visitante": "LINARES DEPORTIVO SAD \"B\""
+    },
+    {
+     "local": "ILITURGI CF 2016",
+     "visitante": "CD TUCCITANA"
+    },
+    {
+     "local": "UD CAZORLA",
+     "visitante": "CD VILLANUEVA"
+    },
+    {
+     "local": "CD VILCHES",
+     "visitante": "JÓDAR CF"
+    },
+    {
+     "local": "CD ÚBEDA VIVA",
+     "visitante": "CAROLINENSE CD"
+    },
+    {
+     "local": "CD JABALQUINTO",
+     "visitante": "JAMILENA ATCO."
+    }
+   ]
+  },
+  {
+   "numero": 30,
+   "fecha": "2027-04-04",
+   "partidos": [
+    {
+     "local": "BEGIJAR CF",
+     "visitante": "INTER DE JAÉN CF"
+    },
+    {
+     "local": "REAL JAÉN CF SAD \"B\"",
+     "visitante": "CD ATLÉTICO BAILÉN 1808"
+    },
+    {
+     "local": "LINARES DEPORTIVO SAD \"B\"",
+     "visitante": "CD CASTELLAR ÍBERO"
+    },
+    {
+     "local": "CD TUCCITANA",
+     "visitante": "CD TUGIA JUEGO LIMPIO"
+    },
+    {
+     "local": "CD VILLANUEVA",
+     "visitante": "ILITURGI CF 2016"
+    },
+    {
+     "local": "JÓDAR CF",
+     "visitante": "UD CAZORLA"
+    },
+    {
+     "local": "CAROLINENSE CD",
+     "visitante": "CD VILCHES"
+    },
+    {
+     "local": "CD JABALQUINTO",
+     "visitante": "CD ÚBEDA VIVA"
+    },
+    {
+     "local": "JAMILENA ATCO.",
+     "visitante": "CD CAMPILLO DEL RÍO CF"
+    }
+   ]
+  },
+  {
+   "numero": 31,
+   "fecha": "2027-04-11",
+   "partidos": [
+    {
+     "local": "CD CAMPILLO DEL RÍO CF",
+     "visitante": "BEGIJAR CF"
+    },
+    {
+     "local": "INTER DE JAÉN CF",
+     "visitante": "REAL JAÉN CF SAD \"B\""
+    },
+    {
+     "local": "CD ATLÉTICO BAILÉN 1808",
+     "visitante": "LINARES DEPORTIVO SAD \"B\""
+    },
+    {
+     "local": "CD CASTELLAR ÍBERO",
+     "visitante": "CD TUCCITANA"
+    },
+    {
+     "local": "CD TUGIA JUEGO LIMPIO",
+     "visitante": "CD VILLANUEVA"
+    },
+    {
+     "local": "ILITURGI CF 2016",
+     "visitante": "JÓDAR CF"
+    },
+    {
+     "local": "UD CAZORLA",
+     "visitante": "CAROLINENSE CD"
+    },
+    {
+     "local": "CD VILCHES",
+     "visitante": "CD JABALQUINTO"
+    },
+    {
+     "local": "CD ÚBEDA VIVA",
+     "visitante": "JAMILENA ATCO."
+    }
+   ]
+  },
+  {
+   "numero": 32,
+   "fecha": "2027-04-18",
+   "partidos": [
+    {
+     "local": "REAL JAÉN CF SAD \"B\"",
+     "visitante": "BEGIJAR CF"
+    },
+    {
+     "local": "LINARES DEPORTIVO SAD \"B\"",
+     "visitante": "INTER DE JAÉN CF"
+    },
+    {
+     "local": "CD TUCCITANA",
+     "visitante": "CD ATLÉTICO BAILÉN 1808"
+    },
+    {
+     "local": "CD VILLANUEVA",
+     "visitante": "CD CASTELLAR ÍBERO"
+    },
+    {
+     "local": "JÓDAR CF",
+     "visitante": "CD TUGIA JUEGO LIMPIO"
+    },
+    {
+     "local": "CAROLINENSE CD",
+     "visitante": "ILITURGI CF 2016"
+    },
+    {
+     "local": "CD JABALQUINTO",
+     "visitante": "UD CAZORLA"
+    },
+    {
+     "local": "JAMILENA ATCO.",
+     "visitante": "CD VILCHES"
+    },
+    {
+     "local": "CD ÚBEDA VIVA",
+     "visitante": "CD CAMPILLO DEL RÍO CF"
+    }
+   ]
+  },
+  {
+   "numero": 33,
+   "fecha": "2027-04-25",
+   "partidos": [
+    {
+     "local": "REAL JAÉN CF SAD \"B\"",
+     "visitante": "CD CAMPILLO DEL RÍO CF"
+    },
+    {
+     "local": "BEGIJAR CF",
+     "visitante": "LINARES DEPORTIVO SAD \"B\""
+    },
+    {
+     "local": "INTER DE JAÉN CF",
+     "visitante": "CD TUCCITANA"
+    },
+    {
+     "local": "CD ATLÉTICO BAILÉN 1808",
+     "visitante": "CD VILLANUEVA"
+    },
+    {
+     "local": "CD CASTELLAR ÍBERO",
+     "visitante": "JÓDAR CF"
+    },
+    {
+     "local": "CD TUGIA JUEGO LIMPIO",
+     "visitante": "CAROLINENSE CD"
+    },
+    {
+     "local": "ILITURGI CF 2016",
+     "visitante": "CD JABALQUINTO"
+    },
+    {
+     "local": "UD CAZORLA",
+     "visitante": "JAMILENA ATCO."
+    },
+    {
+     "local": "CD VILCHES",
+     "visitante": "CD ÚBEDA VIVA"
+    }
+   ]
+  },
+  {
+   "numero": 34,
+   "fecha": "2027-05-02",
+   "partidos": [
+    {
+     "local": "LINARES DEPORTIVO SAD \"B\"",
+     "visitante": "REAL JAÉN CF SAD \"B\""
+    },
+    {
+     "local": "CD TUCCITANA",
+     "visitante": "BEGIJAR CF"
+    },
+    {
+     "local": "CD VILLANUEVA",
+     "visitante": "INTER DE JAÉN CF"
+    },
+    {
+     "local": "JÓDAR CF",
+     "visitante": "CD ATLÉTICO BAILÉN 1808"
+    },
+    {
+     "local": "CAROLINENSE CD",
+     "visitante": "CD CASTELLAR ÍBERO"
+    },
+    {
+     "local": "CD JABALQUINTO",
+     "visitante": "CD TUGIA JUEGO LIMPIO"
+    },
+    {
+     "local": "JAMILENA ATCO.",
+     "visitante": "ILITURGI CF 2016"
+    },
+    {
+     "local": "CD ÚBEDA VIVA",
+     "visitante": "UD CAZORLA"
+    },
+    {
+     "local": "CD CAMPILLO DEL RÍO CF",
+     "visitante": "CD VILCHES"
+    }
+   ]
+  }
+ ]
+}
