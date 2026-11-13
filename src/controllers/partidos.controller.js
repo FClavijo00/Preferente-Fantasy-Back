@@ -676,167 +676,114 @@ const obtenerActaPartido = async (req, res) => {
     }
 };
 
+/**
+ * Acta pública de un partido (se abre desde el calendario y el detalle del equipo):
+ * marcador, eventos (goles, tarjetas y jugador destacado) y las alineaciones con los puntos.
+ *
+ * Los jugadores salen de partido_jugadores, que guarda con qué equipo jugó cada uno ESE partido.
+ * (Antes se filtraba por el equipo actual del jugador: si cambiaba de club, aparecía en las
+ * actas de su equipo nuevo con los puntos que hizo con el anterior.)
+ */
 const getActaPartidoPuntos = async (req, res) => {
     try {
-        const { partido_id } = req.body;
-
-        const query = `
-        SELECT 
-            p.id AS partido_id,
-            p.jornada_id,
-            jor.numero_jornada,
-            p.goles_local,
-            p.goles_visitante,
-            p.jugado,
-            p.tiene_acta,
-            
-            -- Datos Equipo Local
-            el.id AS equipo_local_id,
-            el.nombre AS nombre_local,
-            el.siglas AS siglas_local,
-            el.escudo_url AS escudo_local_url,
-            
-            -- Datos Equipo Visitante
-            ev.id AS equipo_visitante_id,
-            ev.nombre AS nombre_visitante,
-            ev.siglas AS siglas_visitante,
-            ev.escudo_url AS escudo_visitante_url,
-            
-            -- Jugadores del Equipo Local + Puntos
-            COALESCE(
-                (
-                SELECT json_agg(
-                    json_build_object(
-                    'id', j.id,
-                    'nombre', j.nombre,
-                    'apellidos', j.apellidos,
-                    'apodo', j.apodo,
-                    'foto_url', j.foto_url,
-                    'posicion', j.posicion,
-                    'puntos_jornada', COALESCE(pjj.puntos_totales, 0),
-                    'titular', pj.es_titular,
-                    'desglose', COALESCE(pjj.desglose_json::jsonb, '{}'::jsonb)
-                    ) ORDER BY 
-                        CASE j.posicion 
-                        WHEN 'POR' THEN 1 
-                        WHEN 'DEF' THEN 2 
-                        WHEN 'MED' THEN 3 
-                        WHEN 'DEL' THEN 4 
-                        ELSE 5 
-                        END ASC, COALESCE(pjj.puntos_totales, 0) DESC
-                )
-                FROM jugadores j
-                JOIN puntos_jugadores_jornada pjj 
-                    ON pjj.jugador_id = j.id AND pjj.jornada_id = p.jornada_id
-                LEFT JOIN partido_jugadores pj 
-                    ON pj.jugador_id = j.id AND pj.partido_id = p.id
-                WHERE j.equipo_id = p.equipo_local_id
-                ),
-                '[]'::json
-            ) AS jugadores_local,
-
-            -- Jugadores del Equipo Visitante + Puntos
-            COALESCE(
-                (
-                SELECT json_agg(
-                    json_build_object(
-                    'id', j.id,
-                    'nombre', j.nombre,
-                    'apellidos', j.apellidos,
-                    'apodo', j.apodo,
-                    'foto_url', j.foto_url,
-                    'posicion', j.posicion,
-                    'titular', pj.es_titular,
-                    'puntos_jornada', COALESCE(pjj.puntos_totales, 0),
-                    'desglose', COALESCE(pjj.desglose_json::jsonb, '{}'::jsonb)
-                    ) ORDER BY 
-                        CASE j.posicion 
-                        WHEN 'POR' THEN 1 
-                        WHEN 'DEF' THEN 2 
-                        WHEN 'MED' THEN 3 
-                        WHEN 'DEL' THEN 4 
-                        ELSE 5 
-                        END ASC, j.id ASC
-                )
-                FROM jugadores j
-                JOIN puntos_jugadores_jornada pjj 
-                    ON pjj.jugador_id = j.id AND pjj.jornada_id = p.jornada_id
-                LEFT JOIN partido_jugadores pj 
-                    ON pj.jugador_id = j.id AND pj.partido_id = p.id
-                WHERE j.equipo_id = p.equipo_visitante_id
-                ),
-                '[]'::json
-            ) AS jugadores_visitante
-
-            FROM partidos p
-            JOIN jornadas jor ON jor.id = p.jornada_id
-            JOIN equipos el ON el.id = p.equipo_local_id
-            JOIN equipos ev ON ev.id = p.equipo_visitante_id
-            WHERE p.id = $1;
-        `;
-
-        const { rows } = await pool.query(query, [partido_id]);
-
-        if (rows.length === 0) {
-            return res.status(404).json({
-                ok: false,
-                message: "Partido no encontrado",
-            });
+        const partidoId = Number(req.body.partido_id);
+        if (!Number.isInteger(partidoId)) {
+            return res.status(400).json({ ok: false, message: 'Falta el partido.' });
         }
 
-        const actaProcesada = await Promise.all(
-            rows.map(async (acta) => {
-                // 1. Resolvemos las imágenes de los escudos
-                const [fotoEscudoLocal, fotoEscudoVisitante] = await Promise.all([
-                    acta.escudo_local_url
-                        ? getDownloadUrl("equipos/" + acta.escudo_local_url)
-                        : null,
-                    acta.escudo_visitante_url
-                        ? getDownloadUrl("equipos/" + acta.escudo_visitante_url)
-                        : null,
-                ]);
+        const { rows } = await pool.query(
+            `SELECT p.id AS partido_id, p.jornada_id, jor.numero_jornada,
+                    p.goles_local, p.goles_visitante, p.jugado, p.tiene_acta,
+                    to_char(p.fecha_partido, 'YYYY-MM-DD"T"HH24:MI') AS fecha_local,
+                    el.estadio,
+                    el.id AS equipo_local_id, el.nombre AS nombre_local, el.siglas AS siglas_local,
+                    el.escudo_url AS escudo_local_url,
+                    ev.id AS equipo_visitante_id, ev.nombre AS nombre_visitante, ev.siglas AS siglas_visitante,
+                    ev.escudo_url AS escudo_visitante_url
+             FROM partidos p
+             JOIN jornadas jor ON jor.id = p.jornada_id
+             JOIN equipos el ON el.id = p.equipo_local_id
+             JOIN equipos ev ON ev.id = p.equipo_visitante_id
+             WHERE p.id = $1`,
+            [partidoId],
+        );
+        if (rows.length === 0) {
+            return res.status(404).json({ ok: false, message: 'Partido no encontrado' });
+        }
+        const acta = rows[0];
 
-                // 2. Resolvemos las fotos de los jugadores locales
-                const jugadoresLocalProcesados = await Promise.all(
-                    (acta.jugadores_local || []).map(async (jugador) => ({
-                        ...jugador,
-                        foto: jugador.foto_url
-                            ? await getDownloadUrl("jugadores/" + jugador.foto_url)
-                            : null,
-                    })),
-                );
-
-                // 3. Resolvemos las fotos de los jugadores visitantes
-                const jugadoresVisitanteProcesados = await Promise.all(
-                    (acta.jugadores_visitante || []).map(async (jugador) => ({
-                        ...jugador,
-                        foto: jugador.foto_url
-                            ? await getDownloadUrl("jugadores/" + jugador.foto_url)
-                            : null,
-                    })),
-                );
-
-                // 4. Retornamos el acta totalmente resuelta
-                return {
-                    ...acta,
-                    escudo_local: fotoEscudoLocal,
-                    escudo_visitante: fotoEscudoVisitante,
-                    jugadores_local: jugadoresLocalProcesados,
-                    jugadores_visitante: jugadoresVisitanteProcesados,
-                };
-            }),
+        // Convocados de ese partido, con el equipo con el que jugaron y sus puntos
+        const { rows: jugadores } = await pool.query(
+            `SELECT j.id, j.nombre, j.apellidos, j.apodo, j.foto_url, j.posicion,
+                    pj.equipo_id, pj.es_titular AS titular,
+                    COALESCE(pjj.puntos_totales, 0) AS puntos_jornada,
+                    COALESCE(pjj.desglose_json::jsonb, '{}'::jsonb) AS desglose
+             FROM partido_jugadores pj
+             JOIN jugadores j ON j.id = pj.jugador_id
+             LEFT JOIN puntos_jugadores_jornada pjj ON pjj.jugador_id = pj.jugador_id AND pjj.partido_id = pj.partido_id
+             WHERE pj.partido_id = $1
+             ORDER BY pj.es_titular DESC,
+                      CASE j.posicion WHEN 'POR' THEN 1 WHEN 'DEF' THEN 2 WHEN 'MED' THEN 3 WHEN 'DEL' THEN 4 ELSE 5 END,
+                      COALESCE(pjj.puntos_totales, 0) DESC, j.id`,
+            [partidoId],
         );
 
+        // Eventos. En goles, equipo_id es el equipo al que SUBE el gol (también en propia puerta).
+        const nombreJugador = `COALESCE(NULLIF(TRIM(j.apodo), ''), TRIM(j.nombre || ' ' || COALESCE(j.apellidos, '')))`;
+        const { rows: goles } = await pool.query(
+            `SELECT g.id, g.jugador_id, ${nombreJugador} AS jugador, g.equipo_id, g.tipo, g.minuto
+             FROM goles g JOIN jugadores j ON j.id = g.jugador_id
+             WHERE g.partido_id = $1
+             ORDER BY g.minuto ASC NULLS LAST, g.id`,
+            [partidoId],
+        );
+        const { rows: tarjetas } = await pool.query(
+            `SELECT t.id, t.jugador_id, ${nombreJugador} AS jugador, t.equipo_id, t.tipo, t.minuto
+             FROM tarjetas t JOIN jugadores j ON j.id = t.jugador_id
+             WHERE t.partido_id = $1
+             ORDER BY t.minuto ASC NULLS LAST, t.id`,
+            [partidoId],
+        );
+        const { rows: destacados } = await pool.query(
+            `SELECT d.jugador_id, ${nombreJugador} AS jugador, pj.equipo_id
+             FROM destacados_jornada d
+             JOIN jugadores j ON j.id = d.jugador_id
+             LEFT JOIN partido_jugadores pj ON pj.jugador_id = d.jugador_id AND pj.partido_id = d.partido_id
+             WHERE d.partido_id = $1`,
+            [partidoId],
+        );
+
+        const [escudoLocal, escudoVisitante] = await Promise.all([
+            acta.escudo_local_url ? getDownloadUrl('equipos/' + acta.escudo_local_url) : null,
+            acta.escudo_visitante_url ? getDownloadUrl('equipos/' + acta.escudo_visitante_url) : null,
+        ]);
+
+        const conFoto = await Promise.all(
+            jugadores.map(async (j) => ({
+                ...j,
+                foto: j.foto_url ? await getDownloadUrl('jugadores/' + j.foto_url) : null,
+            })),
+        );
+
+        const { escudo_local_url, escudo_visitante_url, ...datos } = acta;
         res.status(200).json({
             ok: true,
-            data: actaProcesada[0],
+            data: {
+                ...datos,
+                escudo_local: escudoLocal,
+                escudo_visitante: escudoVisitante,
+                jugadores_local: conFoto.filter((j) => j.equipo_id === acta.equipo_local_id),
+                jugadores_visitante: conFoto.filter((j) => j.equipo_id === acta.equipo_visitante_id),
+                eventos: {
+                    goles,
+                    tarjetas,
+                    destacado: destacados[0] ?? null,
+                },
+            },
         });
     } catch (error) {
-        console.error("Error al obtener el acta del partido:", error);
-        res.status(500).json({
-            ok: false,
-            message: "Error al obtener el acta del partido",
-        });
+        console.error('Error al obtener el acta del partido:', error);
+        res.status(500).json({ ok: false, message: 'Error al obtener el acta del partido' });
     }
 };
 
