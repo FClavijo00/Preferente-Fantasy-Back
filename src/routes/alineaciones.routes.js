@@ -9,6 +9,7 @@ const {
     cargarOnceIdeal,
     guardarOnceIdeal,
     eliminarOnceIdeal,
+    getEstadoAlineaciones,
 } = require("../controllers/alineaciones.controller");
 
 // GET /api/alineaciones
@@ -21,6 +22,9 @@ router.post(
 );
 
 router.post("/guardarAlineacion", verifyToken, guardarAlineacion);
+
+// Avisos de alineación sin hacer / a punto de cerrar (pestañas y recepción)
+router.get("/getEstadoAlineaciones", verifyToken, getEstadoAlineaciones);
 
 router.post("/cargarOnceIdeal", verifyToken, cargarOnceIdeal);
 

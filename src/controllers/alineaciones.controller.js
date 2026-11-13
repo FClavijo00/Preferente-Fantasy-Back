@@ -177,6 +177,56 @@ const cargarAlineacionesJornadas = async (req, res) => {
     }
 };
 
+/**
+ * Estado de las alineaciones del usuario para la PRÓXIMA jornada (la pendiente de menor número),
+ * en cada una de sus ligas. Sirve para los avisos de "alineación sin hacer / a punto de cerrar".
+ *
+ * La fecha límite (fecha_inicio) se guarda en hora de España sin zona: el tiempo que falta se
+ * calcula aquí con Europe/Madrid, para que no dependa de la zona horaria del móvil.
+ */
+const getEstadoAlineaciones = async (req, res) => {
+    try {
+        const { rows: jornadas } = await pool.query(`
+            SELECT
+                id,
+                numero_jornada,
+                to_char(fecha_inicio, 'YYYY-MM-DD"T"HH24:MI') AS fecha_limite,
+                EXTRACT(EPOCH FROM ((fecha_inicio AT TIME ZONE 'Europe/Madrid') - NOW()))::BIGINT AS segundos_restantes
+            FROM jornadas
+            WHERE estado = 'PENDIENTE' AND competicion_id = 1
+            ORDER BY numero_jornada ASC, id ASC
+            LIMIT 1`);
+
+        if (jornadas.length === 0) {
+            return res.status(200).json({ ok: true, data: { jornada: null, ligas: [] } });
+        }
+
+        const jornada = jornadas[0];
+        const { rows: ligas } = await pool.query(
+            `SELECT
+                lu.liga_id,
+                (SELECT COUNT(*)
+                   FROM plantillas_usuario pu
+                   JOIN plantilla_jugadores pj ON pj.plantilla_id = pu.id
+                  WHERE pu.liga_id = lu.liga_id AND pu.usuario_id = $1 AND pu.jornada_id = $2)::INT AS jugadores
+             FROM liga_usuarios lu
+             WHERE lu.usuario_id = $1`,
+            [req.userId, jornada.id],
+        );
+
+        res.status(200).json({
+            ok: true,
+            data: {
+                jornada: { ...jornada, segundos_restantes: Number(jornada.segundos_restantes) },
+                ligas,
+            },
+        });
+    } catch (error) {
+        console.error('Error al obtener el estado de las alineaciones:', error);
+        res.status(500).json({ ok: false, message: 'Error al obtener el estado de las alineaciones' });
+    }
+};
+
 const guardarAlineacion = async (req, res) => {
     try {
         const { liga_id, jornada_id, formacion_id, jugadores } = req.body;
@@ -476,6 +526,7 @@ module.exports = {
     cargarAlineacion,
     cargarAlineacionesJornadas,
     guardarAlineacion,
+    getEstadoAlineaciones,
     cargarOnceIdeal,
     guardarOnceIdeal,
     eliminarOnceIdeal,
