@@ -36,6 +36,9 @@ app.use('/api/alineaciones', alineacionesRoutes);
 const clasificacionesRoutes = require('../routes/clasificaciones.routes');
 app.use('/api/clasificaciones', clasificacionesRoutes);
 
+const sancionesRoutes = require('../routes/sanciones.routes');
+app.use('/api/sanciones', sancionesRoutes);
+
 // Errores no controlados (p. ej. una foto que supera el límite de subida): siempre en JSON,
 // nunca la página de error de Express con la traza
 // eslint-disable-next-line no-unused-vars
