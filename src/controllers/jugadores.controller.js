@@ -183,6 +183,92 @@ const eliminarJugador = async (req, res) => {
     }
 };
 
+/**
+ * Detalle de un jugador para el modal (se usa desde Plantillas, Ranking, etc.):
+ * datos, equipo, puesto en el ranking y puntos de cada jornada (más reciente primero)
+ * con el desglose y el partido de esa jornada (rival, si jugaba en casa y resultado).
+ */
+const getDetalleJugador = async (req, res) => {
+    try {
+        const jugadorId = Number(req.body.jugador_id);
+        if (!Number.isInteger(jugadorId)) {
+            return res.status(400).json({ ok: false, message: 'Falta el jugador.' });
+        }
+
+        const { rows } = await pool.query(
+            `SELECT j.id, j.nombre, j.apellidos, j.apodo, j.posicion, j.lesionado, j.activo, j.foto_url,
+                    e.id AS equipo_id, e.nombre AS equipo, e.escudo_url
+             FROM jugadores j
+             JOIN equipos e ON e.id = j.equipo_id
+             WHERE j.id = $1`,
+            [jugadorId],
+        );
+        if (rows.length === 0) return res.status(404).json({ ok: false, message: 'El jugador no existe.' });
+        const j = rows[0];
+
+        const { rows: historial } = await pool.query(
+            `SELECT
+                jor.id AS jornada_id,
+                jor.numero_jornada,
+                pjj.puntos_totales AS puntos,
+                pjj.desglose_json AS desglose,
+                -- Equipo con el que jugó ESE partido (puede no ser el actual si cambió de club)
+                (p.equipo_local_id = COALESCE(pj.equipo_id, $2)) AS en_casa,
+                CASE WHEN p.equipo_local_id = COALESCE(pj.equipo_id, $2) THEN ev.nombre ELSE el.nombre END AS rival,
+                CASE WHEN p.equipo_local_id = COALESCE(pj.equipo_id, $2) THEN p.goles_local ELSE p.goles_visitante END AS goles_favor,
+                CASE WHEN p.equipo_local_id = COALESCE(pj.equipo_id, $2) THEN p.goles_visitante ELSE p.goles_local END AS goles_contra,
+                p.jugado
+             FROM puntos_jugadores_jornada pjj
+             JOIN jornadas jor ON jor.id = pjj.jornada_id
+             JOIN partidos p ON p.id = pjj.partido_id
+             LEFT JOIN partido_jugadores pj ON pj.jugador_id = pjj.jugador_id AND pj.partido_id = pjj.partido_id
+             JOIN equipos el ON el.id = p.equipo_local_id
+             JOIN equipos ev ON ev.id = p.equipo_visitante_id
+             WHERE pjj.jugador_id = $1
+             ORDER BY jor.numero_jornada DESC`,
+            [jugadorId, j.equipo_id],
+        );
+
+        // Puesto en el ranking general (por puntos de la temporada)
+        const { rows: ranking } = await pool.query(
+            `SELECT posicion FROM (
+                SELECT jugador_id, RANK() OVER (ORDER BY puntos_totales_temporada DESC)::INT AS posicion
+                FROM vista_ranking_puntos WHERE puntos_totales_temporada > 0
+             ) r WHERE r.jugador_id = $1`,
+            [jugadorId],
+        );
+
+        const puntosTotales = historial.reduce((n, h) => n + h.puntos, 0);
+
+        res.status(200).json({
+            ok: true,
+            data: {
+                id: j.id,
+                nombre: j.nombre,
+                apellidos: j.apellidos,
+                apodo: j.apodo,
+                posicion: j.posicion,
+                lesionado: !!j.lesionado,
+                activo: j.activo !== false,
+                foto: j.foto_url ? await getDownloadUrl('jugadores/' + j.foto_url) : null,
+                equipo: {
+                    id: j.equipo_id,
+                    nombre: j.equipo,
+                    escudo: j.escudo_url ? await getDownloadUrl('equipos/' + j.escudo_url) : null,
+                },
+                puntos_totales: puntosTotales,
+                jornadas_jugadas: historial.length,
+                media: historial.length ? puntosTotales / historial.length : 0,
+                posicion_ranking: ranking[0]?.posicion ?? null,
+                historial,
+            },
+        });
+    } catch (error) {
+        console.error('Error al obtener el detalle del jugador:', error);
+        res.status(500).json({ ok: false, message: 'Error al obtener el detalle del jugador' });
+    }
+};
+
 const getRanking = async (req, res) => {
     try {
         /* const query = `
@@ -197,19 +283,28 @@ const getRanking = async (req, res) => {
             ORDER BY EJ.goles DESC
         `; */
         const query = `
-            SELECT VRP.*, J.foto_url FROM vista_ranking_puntos VRP
+            SELECT VRP.*, J.foto_url, J.equipo_id, E.escudo_url
+            FROM vista_ranking_puntos VRP
             INNER JOIN jugadores J ON J.id = VRP.jugador_id
+            INNER JOIN equipos E ON E.id = J.equipo_id
             WHERE VRP.puntos_totales_temporada > 0
             ORDER BY VRP.puntos_totales_temporada DESC
         `;
 
         const { rows } = await pool.query(query);
 
-        const rankingProcesado = await Promise.all(
-            rows.map(async (jugador) => {
-                const fotoUrl = await getDownloadUrl('jugadores/' + jugador.foto_url);
-                jugador.foto = fotoUrl;
+        // Escudos: una URL firmada por equipo (no una por jugador)
+        const escudos = new Map();
+        for (const url of new Set(rows.map((r) => r.escudo_url).filter(Boolean))) {
+            escudos.set(url, await getDownloadUrl('equipos/' + url));
+        }
 
+        const rankingProcesado = await Promise.all(
+            rows.map(async ({ escudo_url, ...jugador }) => {
+                jugador.foto = jugador.foto_url ? await getDownloadUrl('jugadores/' + jugador.foto_url) : null;
+                jugador.escudo = escudo_url ? escudos.get(escudo_url) : null;
+                jugador.puntos_totales_temporada = Number(jugador.puntos_totales_temporada);
+                jugador.jornadas_jugadas = Number(jugador.jornadas_jugadas);
                 return jugador;
             })
         );
@@ -520,4 +615,4 @@ const getJugadoresEquipoAdmin = async (req, res) => {
     }
 };
 
-module.exports = { crearJugador, editarJugador, eliminarJugador, getRanking, calcularPuntosJugador, getJugadores, getJugadoresPorJornada, getJugadoresEquipoAdmin };
+module.exports = { crearJugador, editarJugador, eliminarJugador, getRanking, calcularPuntosJugador, getJugadores, getJugadoresPorJornada, getJugadoresEquipoAdmin, getDetalleJugador };
