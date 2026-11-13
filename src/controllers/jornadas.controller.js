@@ -10,12 +10,15 @@ const getCalendarioJornadas = async (req, res) => {
                 j.id as jornada_id,
                 j.numero_jornada,
                 j.estado as jornada_estado,
+                to_char(j.fecha_inicio, 'YYYY-MM-DD"T"HH24:MI') as fecha_inicio,
                 json_agg(
                     json_build_object(
                     'partido_id', p.id,
                     'fecha_partido', p.fecha_partido,
                     'fecha', to_char(p.fecha_partido, 'DD/MM/YYYY'), 
                     'hora', to_char(p.fecha_partido, 'HH24:MI'),
+                    -- Hora de España tal cual está guardada (para agrupar por día en el front)
+                    'fecha_local', to_char(p.fecha_partido, 'YYYY-MM-DD"T"HH24:MI'),
                     'goles_local', p.goles_local,
                     'goles_visitante', p.goles_visitante,
                     'jugado', p.jugado,
@@ -30,14 +33,15 @@ const getCalendarioJornadas = async (req, res) => {
                         'nombre', eq_vis.nombre,
                         'escudo_url', eq_vis.escudo_url
                     )
-                    ) ORDER BY p.fecha_partido ASC
-                ) AS partidos
+                    ) ORDER BY p.fecha_partido ASC NULLS LAST
+                ) FILTER (WHERE p.id IS NOT NULL) AS partidos
+            -- LEFT JOIN: también las jornadas que aún no tienen partidos asignados
             FROM jornadas j
-            INNER JOIN partidos p ON p.jornada_id = j.id
-            INNER JOIN equipos eq_loc ON p.equipo_local_id = eq_loc.id
-            INNER JOIN equipos eq_vis ON p.equipo_visitante_id = eq_vis.id
-            -- WHERE j.competicion_id = $1 Opcional: filtrar por competición
-            GROUP BY j.id, j.numero_jornada, j.estado
+            LEFT JOIN partidos p ON p.jornada_id = j.id
+            LEFT JOIN equipos eq_loc ON p.equipo_local_id = eq_loc.id
+            LEFT JOIN equipos eq_vis ON p.equipo_visitante_id = eq_vis.id
+            WHERE j.competicion_id = 1
+            GROUP BY j.id, j.numero_jornada, j.estado, j.fecha_inicio
             ORDER BY j.numero_jornada ASC;
         `;
 
@@ -45,8 +49,9 @@ const getCalendarioJornadas = async (req, res) => {
 
         const calendarioProcesado = await Promise.all(
             rows.map(async (jornada) => {
+                // Sin partidos, json_agg ... FILTER devuelve NULL
                 const partidos = await Promise.all(
-                    jornada.partidos.map(async (partido) => {
+                    (jornada.partidos || []).map(async (partido) => {
                         const local = await getDownloadUrl('equipos/' + partido.local.escudo_url);
                         const visitante = await getDownloadUrl('equipos/' + partido.visitante.escudo_url);
                         partido.local.escudo = local;
