@@ -113,10 +113,18 @@ const getClasificacion = async (req, res) => {
 
     const { rows } = await pool.query(query);
 
+    // Detalle de las sanciones (puntos y motivo) para enseñarlas en la clasificación
+    const { rows: sanciones } = await pool.query(
+      'SELECT equipo_id, puntos, motivo FROM sanciones_equipo ORDER BY created_at, id'
+    );
+
     const clasificacionProcesada = await Promise.all(
       rows.map(async (equipo) => {
         const fotoUrl = await getDownloadUrl('equipos/' + equipo.escudo_url);
         equipo.escudo = fotoUrl;
+        equipo.sanciones = sanciones
+          .filter((s) => s.equipo_id === equipo.equipo_id)
+          .map(({ puntos, motivo }) => ({ puntos, motivo }));
 
         return equipo;
       }
@@ -165,4 +173,97 @@ const getEquiposLimpios = async (req, res) => {
   }
 };
 
-module.exports = { getEquipos, getEquiposLimpios, getClasificacion };
+/**
+ * Detalle de un equipo para el modal (se abre desde la clasificación):
+ * datos, colores, estadio (con coordenadas si las tiene), su línea en la clasificación
+ * y los partidos ya disputados, del más reciente al más antiguo.
+ */
+const getDetalleEquipo = async (req, res) => {
+  try {
+    const equipoId = Number(req.body.equipo_id);
+    if (!Number.isInteger(equipoId)) {
+      return res.status(400).json({ ok: false, message: 'Falta el equipo.' });
+    }
+
+    const { rows } = await pool.query(
+      `SELECT id, nombre, siglas, escudo_url, color_primario, color_secundario,
+              estadio, estadio_lat, estadio_lng
+       FROM equipos WHERE id = $1`,
+      [equipoId],
+    );
+    if (rows.length === 0) return res.status(404).json({ ok: false, message: 'El equipo no existe.' });
+    const e = rows[0];
+
+    // Su fila en la clasificación (mismo orden que la vista: puntos, DG, GF y nombre)
+    const { rows: clasif } = await pool.query(
+      `SELECT * FROM (
+          SELECT equipo_id,
+                 ROW_NUMBER() OVER (ORDER BY puntos DESC, diferencia_goles DESC, goles_favor DESC, equipo)::INT AS posicion,
+                 partidos_jugados::INT AS pj, puntos::INT AS pts,
+                 ganados::INT AS g, empatados::INT AS e, perdidos::INT AS p,
+                 goles_favor::INT AS gf, goles_contra::INT AS gc,
+                 diferencia_goles::INT AS dg, san::INT AS san
+          FROM vista_clasificacion
+       ) c WHERE c.equipo_id = $1`,
+      [equipoId],
+    );
+
+    // Partidos disputados (más reciente primero)
+    const { rows: partidos } = await pool.query(
+      `SELECT p.id AS partido_id,
+              jor.numero_jornada,
+              to_char(p.fecha_partido, 'YYYY-MM-DD"T"HH24:MI') AS fecha_local,
+              (p.equipo_local_id = $1) AS en_casa,
+              r.id AS rival_id, r.nombre AS rival, r.escudo_url AS rival_escudo_url,
+              CASE WHEN p.equipo_local_id = $1 THEN p.goles_local ELSE p.goles_visitante END AS goles_favor,
+              CASE WHEN p.equipo_local_id = $1 THEN p.goles_visitante ELSE p.goles_local END AS goles_contra,
+              p.tiene_acta
+       FROM partidos p
+       JOIN jornadas jor ON jor.id = p.jornada_id
+       JOIN equipos r ON r.id = CASE WHEN p.equipo_local_id = $1 THEN p.equipo_visitante_id ELSE p.equipo_local_id END
+       WHERE (p.equipo_local_id = $1 OR p.equipo_visitante_id = $1) AND p.jugado = true
+       ORDER BY jor.numero_jornada DESC, p.fecha_partido DESC NULLS LAST`,
+      [equipoId],
+    );
+
+    // Escudos: una URL firmada por equipo
+    const escudos = new Map();
+    const firmar = async (url) => {
+      if (!url) return null;
+      if (!escudos.has(url)) escudos.set(url, await getDownloadUrl('equipos/' + url));
+      return escudos.get(url);
+    };
+
+    const partidosProcesados = [];
+    for (const { rival_escudo_url, ...p } of partidos) {
+      const resultado =
+        p.goles_favor > p.goles_contra ? 'V' : p.goles_favor < p.goles_contra ? 'D' : 'E';
+      partidosProcesados.push({ ...p, resultado, rival_escudo: await firmar(rival_escudo_url) });
+    }
+
+    res.status(200).json({
+      ok: true,
+      data: {
+        id: e.id,
+        nombre: e.nombre,
+        siglas: e.siglas,
+        escudo: await firmar(e.escudo_url),
+        color_primario: e.color_primario || null,
+        color_secundario: e.color_secundario || null,
+        estadio: e.estadio || null,
+        // NUMERIC llega como texto
+        estadio_lat: e.estadio_lat !== null ? Number(e.estadio_lat) : null,
+        estadio_lng: e.estadio_lng !== null ? Number(e.estadio_lng) : null,
+        clasificacion: clasif[0]
+          ? (({ equipo_id, ...c }) => c)(clasif[0])
+          : null,
+        partidos: partidosProcesados,
+      },
+    });
+  } catch (error) {
+    console.error('Error al obtener el detalle del equipo:', error);
+    res.status(500).json({ ok: false, message: 'Error al obtener el detalle del equipo' });
+  }
+};
+
+module.exports = { getEquipos, getEquiposLimpios, getClasificacion, getDetalleEquipo };
