@@ -444,48 +444,42 @@ function calcularPuntosJugador({
 
 const getJugadores = async (req, res) => {
     try {
-        const { posicion, excluidos } = req.body;
+        const { posicion, idsExcluidos, excluidos } = req.body;
 
         if (!posicion) {
             return res.status(400).json({ error: 'La posición es obligatoria.' });
         }
 
-        // Convertimos el string "12,45,88" en un array de números [12, 45, 88]
-        const idsExcluidos = excluidos
-            ? excluidos.split(',').map(id => parseInt(id, 10)).filter(Boolean)
-            : [];
+        // Jugadores ya alineados: array [12, 45] (o, en clientes antiguos, el texto "12,45")
+        const lista = Array.isArray(idsExcluidos)
+            ? idsExcluidos
+            : typeof excluidos === 'string' ? excluidos.split(',') : [];
+        const ids = lista.map(Number).filter(Number.isInteger);
 
-        let query = `
-        SELECT 
+        // Solo jugadores en activo; los lesionados salen (marcados) para que el usuario decida
+        const query = `
+        SELECT
             j.id,
             j.nombre,
+            j.apellidos,
             j.apodo,
             j.posicion,
+            j.lesionado,
             j.foto_url,
             j.equipo_id,
             e.nombre AS equipo_nombre,
             e.escudo_url AS equipo_escudo_url,
-            COALESCE(SUM(PJJ.puntos_totales), 0)::int AS puntos_totales
+            COALESCE(SUM(PJJ.puntos_totales), 0)::int AS puntos_totales,
+            COUNT(PJJ.jugador_id)::int AS jornadas_jugadas
         FROM jugadores j
         JOIN equipos e ON j.equipo_id = e.id
         LEFT JOIN puntos_jugadores_jornada PJJ ON j.id = PJJ.jugador_id
-        WHERE j.posicion = $1
+        WHERE j.posicion = $1 AND j.activo AND NOT (j.id = ANY($2::int[]))
+        GROUP BY j.id, e.id, e.nombre, e.escudo_url
+        ORDER BY puntos_totales DESC, j.apodo, j.nombre;
         `;
 
-        const values = [posicion];
-
-        // Si hay jugadores ya seleccionados, añadimos el filtro NOT IN
-        if (idsExcluidos.length > 0) {
-            query += ` AND j.id NOT IN (${idsExcluidos.map((_, i) => `$${i + 2}`).join(',')})`;
-            values.push(...idsExcluidos);
-        }
-
-        query += `
-            GROUP BY j.id, e.id, e.nombre, e.escudo_url
-            ORDER BY puntos_totales DESC;
-        `;
-
-        const { rows } = await pool.query(query, values);
+        const { rows } = await pool.query(query, [posicion, ids]);
 
         const jugadoresProcesados = await Promise.all(
             rows.map(async (jugador) => {
