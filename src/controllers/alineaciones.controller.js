@@ -5,6 +5,81 @@ const { esMiembroLiga, withTransaction } = require("../services/permisos");
 const noEsMiembro = (res) =>
     res.status(403).json({ ok: false, message: "No perteneces a esta liga" });
 
+const JUGADORES_ONCE = 11;
+const MAX_POR_EQUIPO = 2;
+
+/**
+ * Rol de cada hueco de una formación "DEF-MED-DEL" (p. ej. "4-4-2"), en el mismo orden que
+ * pinta el campo del front: delanteros, medios, defensas y, el último, el portero.
+ */
+const rolesFormacion = (formacion) => {
+    const [def, med, del] = String(formacion).split("-").map(Number);
+    return [
+        ...Array(del).fill("DEL"),
+        ...Array(med).fill("MED"),
+        ...Array(def).fill("DEF"),
+        "POR",
+    ];
+};
+
+/**
+ * Comprueba que el once es válido para la formación: 11 jugadores distintos, cada uno en un
+ * hueco distinto de su posición, todos en activo y como mucho 2 del mismo equipo.
+ * Devuelve { error } con el motivo, o { roles } (rol de cada hueco) si es válido.
+ */
+const validarOnce = async (formacionId, jugadores) => {
+    const { rows: formaciones } = await pool.query(
+        "SELECT formacion FROM formaciones WHERE id = $1",
+        [formacionId],
+    );
+    if (formaciones.length === 0) return { error: "La formación no existe." };
+
+    const roles = rolesFormacion(formaciones[0].formacion);
+    const ids = jugadores.map((s) => Number(s.jugador_id));
+    const huecos = jugadores.map((s) => Number(s.hueco_index));
+
+    if (
+        jugadores.length !== JUGADORES_ONCE ||
+        roles.length !== JUGADORES_ONCE ||
+        !ids.every(Number.isInteger) ||
+        new Set(ids).size !== JUGADORES_ONCE
+    ) {
+        return { error: "La alineación debe tener 11 jugadores distintos." };
+    }
+    if (
+        !huecos.every((h) => Number.isInteger(h) && h >= 0 && h < JUGADORES_ONCE) ||
+        new Set(huecos).size !== JUGADORES_ONCE
+    ) {
+        return { error: "Los huecos de la alineación no son válidos." };
+    }
+
+    const { rows: datos } = await pool.query(
+        `SELECT j.id, j.posicion, j.activo, j.equipo_id, e.nombre AS equipo
+           FROM jugadores j JOIN equipos e ON e.id = j.equipo_id
+          WHERE j.id = ANY($1::int[])`,
+        [ids],
+    );
+    const porId = new Map(datos.map((j) => [j.id, j]));
+    const porEquipo = new Map();
+
+    for (let i = 0; i < jugadores.length; i++) {
+        const jugador = porId.get(ids[i]);
+        if (!jugador || !jugador.activo) {
+            return { error: "Hay jugadores en la alineación que ya no están disponibles." };
+        }
+        if (jugador.posicion !== roles[huecos[i]]) {
+            return { error: "Hay jugadores colocados fuera de su posición." };
+        }
+        const n = (porEquipo.get(jugador.equipo_id) || 0) + 1;
+        if (n > MAX_POR_EQUIPO) {
+            return { error: `Solo puedes alinear ${MAX_POR_EQUIPO} jugadores de ${jugador.equipo}.` };
+        }
+        porEquipo.set(jugador.equipo_id, n);
+    }
+
+    return { roles };
+};
+
 const cargarAlineacion = async (req, res) => {
     try {
         const { liga_id, usuario_id, jornada_id } = req.body;
@@ -30,6 +105,27 @@ const cargarAlineacion = async (req, res) => {
             jornada_id,
         ]);
 
+        // Sin plantilla en esta jornada: con "anterior" (solo para tu propia alineación) se devuelve
+        // la última que guardaste en una jornada anterior de la liga, como propuesta SIN guardar
+        let deJornada = null;
+        if (plantillas.length === 0 && req.body.anterior === true && Number(usuario_id) === Number(req.userId)) {
+            const { rows: previas } = await pool.query(
+                `SELECT pu.id, pu.formacion_id, jo.numero_jornada
+                   FROM plantillas_usuario pu
+                   JOIN jornadas jo ON jo.id = pu.jornada_id
+                  WHERE pu.liga_id = $1 AND pu.usuario_id = $2
+                    AND jo.numero_jornada < (SELECT numero_jornada FROM jornadas WHERE id = $3)
+                    AND EXISTS (SELECT 1 FROM plantilla_jugadores pj WHERE pj.plantilla_id = pu.id)
+                  ORDER BY jo.numero_jornada DESC
+                  LIMIT 1`,
+                [liga_id, usuario_id, jornada_id],
+            );
+            if (previas.length > 0) {
+                plantillas.push(previas[0]);
+                deJornada = previas[0].numero_jornada;
+            }
+        }
+
         if (plantillas.length === 0) {
             // No hay plantilla guardada aún para esta jornada
             return res.json({ existe: false, formacion_id: 1, jugadores: [] });
@@ -46,6 +142,8 @@ const cargarAlineacion = async (req, res) => {
                 j.nombre,
                 j.apodo,
                 j.foto_url,
+                j.lesionado,
+                j.activo,
                 j.equipo_id,
                 e.nombre AS equipo_nombre,
                 e.escudo_url AS equipo_escudo_url
@@ -74,7 +172,10 @@ const cargarAlineacion = async (req, res) => {
         );
 
         return res.json({
-            existe: true,
+            // false si es la propuesta de una jornada anterior: aún no está guardada para esta
+            existe: deJornada === null,
+            /** Número de la jornada de la que se ha copiado (solo si existe = false) */
+            de_jornada: deJornada,
             formacion_id: plantilla.formacion_id,
             jugadores: jugadoresProcesados,
         });
@@ -244,6 +345,28 @@ const guardarAlineacion = async (req, res) => {
             return noEsMiembro(res);
         }
 
+        // La jornada tiene que seguir abierta: pendiente y antes de su hora de inicio (hora de España)
+        const { rows: jornadas } = await pool.query(
+            `SELECT estado = 'PENDIENTE'
+                    AND NOW() < (fecha_inicio AT TIME ZONE 'Europe/Madrid') AS abierta
+               FROM jornadas WHERE id = $1`,
+            [jornada_id],
+        );
+        if (jornadas.length === 0) {
+            return res.status(404).json({ ok: false, message: "La jornada no existe." });
+        }
+        if (!jornadas[0].abierta) {
+            return res.status(409).json({
+                ok: false,
+                message: "La jornada ya ha empezado: no se puede cambiar la alineación.",
+            });
+        }
+
+        const { error, roles } = await validarOnce(formacion_id, jugadores);
+        if (error) {
+            return res.status(400).json({ ok: false, message: error });
+        }
+
         // 1. Transacción real (una sola conexión para todas las consultas)
         const plantillaId = await withTransaction(async (client) => {
             //2. Insertamos o actualizamos plantilla del usuario para la jornada
@@ -276,16 +399,15 @@ const guardarAlineacion = async (req, res) => {
             VALUES ($1, $2, $3, $4);
         `;
 
+            // La posición la marca el hueco de la formación, no lo que mande el cliente
             for (const slot of jugadores) {
-                if (slot.jugador_id) {
-                    // Solo insertamos los huecos que tengan jugador asignado
-                    await client.query(queryJugadores, [
-                        plantillaId,
-                        slot.jugador_id,
-                        slot.posicion,
-                        slot.hueco_index,
-                    ]);
-                }
+                const hueco = Number(slot.hueco_index);
+                await client.query(queryJugadores, [
+                    plantillaId,
+                    Number(slot.jugador_id),
+                    roles[hueco],
+                    hueco,
+                ]);
             }
 
             return plantillaId;
