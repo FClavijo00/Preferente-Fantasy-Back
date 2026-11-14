@@ -93,6 +93,17 @@ const cargarAlineacion = async (req, res) => {
             return noEsMiembro(res);
         }
 
+        // La de otro usuario no se puede ver hasta que empieza la jornada
+        if (Number(usuario_id) !== Number(req.userId)) {
+            const { rows: jor } = await pool.query("SELECT estado FROM jornadas WHERE id = $1", [jornada_id]);
+            if (jor.length === 0 || jor[0].estado === "PENDIENTE") {
+                return res.status(403).json({
+                    ok: false,
+                    message: "La alineación de otro usuario no se puede ver hasta que empiece la jornada.",
+                });
+            }
+        }
+
         // 1. Buscamos la plantilla guardada
         const queryPlantilla = `
             SELECT id, formacion_id 
@@ -219,10 +230,12 @@ const cargarAlineacionesJornadas = async (req, res) => {
                     'apellidos', j.apellidos,
                     'apodo', j.apodo,
                     'foto', j.foto_url,
-                    'equipo_id', j.equipo_id,
+                    'equipo_id', e.id,
                     'equipo_nombre', e.nombre,
                     'equipo_escudo_url', e.escudo_url,
                     'puntos_jornada', COALESCE(pjj.puntos_totales, 0),
+                    -- false = no jugó esa jornada (no es lo mismo que jugar y sacar 0)
+                    'jugo', pjj.jugador_id IS NOT NULL,
                     'desglose_puntos', pjj.desglose_json
                     ) ORDER BY pj.hueco_index ASC
                 ) FILTER (WHERE pj.plantilla_id IS NOT NULL),
@@ -231,7 +244,15 @@ const cargarAlineacionesJornadas = async (req, res) => {
         FROM plantillas_usuario pu
         LEFT JOIN plantilla_jugadores pj ON pj.plantilla_id = pu.id
         LEFT JOIN jugadores j ON j.id = pj.jugador_id
-        LEFT JOIN equipos e ON e.id = j.equipo_id
+        -- Equipo con el que jugó ESA jornada (si cambió de equipo después); si no jugó, el actual
+        LEFT JOIN LATERAL (
+            SELECT pjx.equipo_id
+              FROM partido_jugadores pjx
+              JOIN partidos px ON px.id = pjx.partido_id
+             WHERE pjx.jugador_id = j.id AND px.jornada_id = pu.jornada_id
+             LIMIT 1
+        ) eqj ON true
+        LEFT JOIN equipos e ON e.id = COALESCE(eqj.equipo_id, j.equipo_id)
         LEFT JOIN jornadas jor ON jor.id = pu.jornada_id
         LEFT JOIN formaciones f ON f.id = pu.formacion_id
         -- Hacemos el JOIN con puntos filtrando por jugador_id Y la jornada exacta de la plantilla
@@ -461,14 +482,22 @@ const cargarOnceIdeal = async (req, res) => {
                 j.apellidos,
                 j.apodo,
                 j.foto_url,
-                j.equipo_id,
+                e.id AS equipo_id,
                 e.nombre AS equipo_nombre,
                 e.escudo_url AS equipo_escudo_url,
                 PJJ.puntos_totales AS puntos_jornada,
                 PJJ.desglose_json
             FROM plantilla_onces_ideales POI
             JOIN jugadores j ON j.id = POI.jugador_id
-            JOIN equipos e ON e.id = j.equipo_id
+            -- Equipo con el que jugó ESA jornada (si después cambió de equipo)
+            LEFT JOIN LATERAL (
+                SELECT pjx.equipo_id
+                  FROM partido_jugadores pjx
+                  JOIN partidos px ON px.id = pjx.partido_id
+                 WHERE pjx.jugador_id = j.id AND px.jornada_id = $2
+                 LIMIT 1
+            ) eqj ON true
+            JOIN equipos e ON e.id = COALESCE(eqj.equipo_id, j.equipo_id)
             JOIN puntos_jugadores_jornada PJJ ON PJJ.jugador_id = POI.jugador_id
             WHERE POI.once_ideal_id = $1 AND PJJ.jornada_id = $2
             ORDER BY POI.hueco_index ASC;
