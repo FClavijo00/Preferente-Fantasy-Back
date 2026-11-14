@@ -140,6 +140,7 @@ const cargarAlineacion = async (req, res) => {
                 pj.posicion,
                 j.id,
                 j.nombre,
+                j.apellidos,
                 j.apodo,
                 j.foto_url,
                 j.lesionado,
