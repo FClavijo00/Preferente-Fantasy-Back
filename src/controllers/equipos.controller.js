@@ -266,4 +266,65 @@ const getDetalleEquipo = async (req, res) => {
   }
 };
 
-module.exports = { getEquipos, getEquiposLimpios, getClasificacion, getDetalleEquipo };
+/**
+ * Plantilla de un equipo para la pantalla "Plantillas": jugadores en activo con sus puntos de la
+ * temporada y las jornadas que han puntuado (para la media), y la fila del equipo en la clasificación.
+ * Solo un equipo cada vez: se firman ~25 fotos en lugar de las de toda la liga.
+ */
+const getPlantillaEquipo = async (req, res) => {
+  try {
+    const equipoId = Number(req.body.equipo_id);
+    if (!Number.isInteger(equipoId)) {
+      return res.status(400).json({ ok: false, message: 'Falta el equipo.' });
+    }
+
+    const { rowCount } = await pool.query('SELECT 1 FROM equipos WHERE id = $1', [equipoId]);
+    if (rowCount === 0) return res.status(404).json({ ok: false, message: 'El equipo no existe.' });
+
+    const [{ rows: jugadores }, { rows: clasif }] = await Promise.all([
+      pool.query(
+        `SELECT j.id, j.nombre, j.apellidos, j.apodo, j.posicion, j.lesionado, j.foto_url,
+                COALESCE(SUM(pjj.puntos_totales), 0)::INT AS puntos_totales,
+                COUNT(pjj.jugador_id)::INT AS jornadas_jugadas
+           FROM jugadores j
+           LEFT JOIN puntos_jugadores_jornada pjj ON pjj.jugador_id = j.id
+          WHERE j.equipo_id = $1 AND j.activo
+          GROUP BY j.id
+          ORDER BY CASE j.posicion WHEN 'POR' THEN 1 WHEN 'DEF' THEN 2 WHEN 'MED' THEN 3 ELSE 4 END,
+                   puntos_totales DESC, COALESCE(j.apodo, j.nombre)`,
+        [equipoId],
+      ),
+      pool.query(
+        `SELECT * FROM (
+            SELECT equipo_id,
+                   ROW_NUMBER() OVER (ORDER BY puntos DESC, diferencia_goles DESC, goles_favor DESC, equipo)::INT AS posicion,
+                   puntos::INT AS pts
+            FROM vista_clasificacion
+         ) c WHERE c.equipo_id = $1`,
+        [equipoId],
+      ),
+    ]);
+
+    const data = [];
+    for (const { foto_url, ...j } of jugadores) {
+      data.push({
+        ...j,
+        lesionado: !!j.lesionado,
+        foto: foto_url ? await getDownloadUrl('jugadores/' + foto_url) : null,
+      });
+    }
+
+    res.status(200).json({
+      ok: true,
+      data: {
+        clasificacion: clasif[0] ? { posicion: clasif[0].posicion, pts: clasif[0].pts } : null,
+        jugadores: data,
+      },
+    });
+  } catch (error) {
+    console.error('Error al obtener la plantilla del equipo:', error);
+    res.status(500).json({ ok: false, message: 'Error al obtener la plantilla del equipo' });
+  }
+};
+
+module.exports = { getEquipos, getEquiposLimpios, getClasificacion, getDetalleEquipo, getPlantillaEquipo };
