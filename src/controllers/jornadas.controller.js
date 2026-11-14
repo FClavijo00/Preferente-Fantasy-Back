@@ -111,12 +111,17 @@ const getSiguienteJornada = async (req, res) => {
             fecha_fin, estado, to_char(fecha_inicio, 'DD/MM/YYYY') as fecha_inicio_formateada,
             to_char(fecha_fin, 'DD/MM/YYYY') as fecha_fin_formateada,
             to_char(fecha_inicio, 'HH24:MI') as hora_inicio_formateada,
-            to_char(fecha_fin, 'HH24:MI') as hora_fin_formateada
+            to_char(fecha_fin, 'HH24:MI') as hora_fin_formateada,
+            -- Hora de España tal cual y segundos que faltan para el cierre de alineaciones
+            -- (calculados aquí para no depender de la zona horaria del móvil)
+            to_char(fecha_inicio, 'YYYY-MM-DD"T"HH24:MI') as fecha_limite,
+            EXTRACT(EPOCH FROM ((fecha_inicio AT TIME ZONE 'Europe/Madrid') - NOW()))::BIGINT AS segundos_restantes
             FROM jornadas WHERE estado = 'PENDIENTE'
             ORDER BY numero_jornada ASC, id ASC
         `;
 
         const { rows } = await pool.query(query);
+        if (rows[0]) rows[0].segundos_restantes = Number(rows[0].segundos_restantes);
 
         if (rows.length === 0) {
             return res.status(404).json({
