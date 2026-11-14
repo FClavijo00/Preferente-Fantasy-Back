@@ -2,110 +2,131 @@ const pool = require('../config/db');
 const { getDownloadUrl } = require('../config/s3');
 const { esMiembroLiga } = require('../services/permisos');
 
+/** Avatar subido por el usuario: URL firmada. El resto (avatares predefinidos o vacío) tal cual. */
+const firmarAvatar = async (imageUrl) =>
+    imageUrl && imageUrl.startsWith('avatar') ? getDownloadUrl('usuarios/' + imageUrl) : imageUrl;
+
+/** Jornadas ya empezadas (en juego o cerradas) en las que la liga tiene alineaciones. */
+const SQL_JORNADAS_LIGA = `
+    SELECT j.id, j.numero_jornada, j.estado,
+           EXISTS (SELECT 1 FROM once_ideal oi WHERE oi.jornada_id = j.id) AS tiene_once_ideal
+      FROM jornadas j
+     WHERE j.estado IN ('EN_JUEGO', 'CERRADA')
+       AND EXISTS (SELECT 1 FROM plantillas_usuario pu WHERE pu.jornada_id = j.id AND pu.liga_id = $1)
+     ORDER BY j.numero_jornada DESC, j.id DESC`;
+
+/**
+ * Clasificación general de la liga. Incluye "movimiento": puestos que ha subido (+) o bajado (-)
+ * respecto a la clasificación antes de la última jornada empezada (null si solo hay una).
+ */
 const getClasificacionLiga = async (req, res) => {
     try {
-        const { liga_id } = req.body;
-
-        if (!liga_id) {
-            return res.status(400).json({ error: 'Faltan parámetros requeridos.' });
+        const ligaId = Number(req.body.liga_id);
+        if (!Number.isInteger(ligaId)) {
+            return res.status(400).json({ ok: false, message: 'Falta la liga.' });
+        }
+        if (!(await esMiembroLiga(ligaId, req.userId))) {
+            return res.status(403).json({ ok: false, message: 'No perteneces a esta liga' });
         }
 
-        const query = `
-            SELECT 
-                u.id AS usuario_id,
-                u.nombre_usuario,
-                u.nombre_club,
-                u.image_url,
-                COALESCE(SUM(pjj.puntos_totales), 0) AS puntos_totales,
-                RANK() OVER (ORDER BY COALESCE(SUM(pjj.puntos_totales), 0) DESC) AS posicion
-            FROM liga_usuarios lu
-            JOIN usuarios u ON u.id = lu.usuario_id
-            LEFT JOIN plantillas_usuario pu ON pu.usuario_id = u.id AND pu.liga_id = lu.liga_id
-            LEFT JOIN plantilla_jugadores pj ON pj.plantilla_id = pu.id
-            LEFT JOIN puntos_jugadores_jornada pjj ON pjj.jugador_id = pj.jugador_id AND pjj.jornada_id = pu.jornada_id
-            WHERE lu.liga_id = $1
-            GROUP BY u.id, u.nombre_usuario, u.nombre_club, u.image_url
-            ORDER BY puntos_totales DESC;
-        `;
+        const { rows: jornadas } = await pool.query(SQL_JORNADAS_LIGA, [ligaId]);
+        const ultima = jornadas[0]?.id ?? null;
 
-        const resClasificacion = await pool.query(query, [liga_id]);
+        const { rows } = await pool.query(
+            `WITH puntos AS (
+                SELECT lu.usuario_id,
+                       COALESCE(SUM(pjj.puntos_totales), 0)::INT AS total,
+                       COALESCE(SUM(pjj.puntos_totales) FILTER (WHERE pu.jornada_id IS DISTINCT FROM $2::INT), 0)::INT AS previo
+                  FROM liga_usuarios lu
+                  LEFT JOIN plantillas_usuario pu ON pu.usuario_id = lu.usuario_id AND pu.liga_id = lu.liga_id
+                  LEFT JOIN plantilla_jugadores pj ON pj.plantilla_id = pu.id
+                  LEFT JOIN puntos_jugadores_jornada pjj ON pjj.jugador_id = pj.jugador_id AND pjj.jornada_id = pu.jornada_id
+                 WHERE lu.liga_id = $1
+                 GROUP BY lu.usuario_id
+             )
+             SELECT u.id AS usuario_id, u.nombre_usuario, u.nombre_club, u.image_url,
+                    p.total AS puntos_totales,
+                    RANK() OVER (ORDER BY p.total DESC)::INT AS posicion,
+                    RANK() OVER (ORDER BY p.previo DESC)::INT AS posicion_previa
+               FROM puntos p
+               JOIN usuarios u ON u.id = p.usuario_id
+              ORDER BY p.total DESC, u.nombre_club`,
+            [ligaId, ultima],
+        );
 
-        // AQUÍ IRÍA LA PARTE DE PROCESADOR EL AVATAR DEL USUARIO
-        const clasificacionProcesada = await Promise.all(
-            resClasificacion.rows.map(async (usuario) => {
-                if (usuario.image_url && usuario.image_url.startsWith('avatar')) {
-                    const imageUrl = await getDownloadUrl('usuarios/' + usuario.image_url);
-                    return { ...usuario, image_url: imageUrl };
-                }
-                return usuario;
-            })
-        )
+        // Con menos de dos jornadas no hay con qué comparar
+        const hayPrevia = jornadas.length >= 2;
+        const data = [];
+        for (const { posicion_previa, ...u } of rows) {
+            data.push({
+                ...u,
+                image_url: await firmarAvatar(u.image_url),
+                movimiento: hayPrevia ? posicion_previa - u.posicion : null,
+            });
+        }
 
-        res.status(200).json({
-            ok: true,
-            data: clasificacionProcesada
-        });
+        res.status(200).json({ ok: true, data });
     } catch (error) {
         console.error('Error al obtener la clasificación de la liga:', error);
-        res.status(500).json({
-            ok: false,
-            message: 'Error al obtener la clasificación de la liga'
-        });
+        res.status(500).json({ ok: false, message: 'Error al obtener la clasificación de la liga' });
     }
-}
+};
 
+/** Clasificación de una jornada empezada: solo quienes alinearon en ella. */
 const getClasificacionPorJornada = async (req, res) => {
     try {
-        const { liga_id,jornada_id } = req.body;
-
-        if (!jornada_id) {
-            return res.status(400).json({ error: 'Faltan parámetros requeridos.' });
+        const ligaId = Number(req.body.liga_id);
+        const jornadaId = Number(req.body.jornada_id);
+        if (!Number.isInteger(ligaId) || !Number.isInteger(jornadaId)) {
+            return res.status(400).json({ ok: false, message: 'Faltan parámetros requeridos.' });
+        }
+        if (!(await esMiembroLiga(ligaId, req.userId))) {
+            return res.status(403).json({ ok: false, message: 'No perteneces a esta liga' });
         }
 
-        const query = `
-            SELECT 
-                u.id AS usuario_id,
-                u.nombre_usuario,
-                u.nombre_club,
-                u.image_url,
-                COALESCE(SUM(pjj.puntos_totales), 0) AS puntos_totales,
-                RANK() OVER (ORDER BY COALESCE(SUM(pjj.puntos_totales), 0) DESC) AS posicion
-            FROM liga_usuarios lu
-            JOIN usuarios u ON u.id = lu.usuario_id
-            LEFT JOIN plantillas_usuario pu ON pu.usuario_id = u.id AND pu.liga_id = lu.liga_id
-            LEFT JOIN plantilla_jugadores pj ON pj.plantilla_id = pu.id
-            LEFT JOIN puntos_jugadores_jornada pjj ON pjj.jugador_id = pj.jugador_id AND pjj.jornada_id = pu.jornada_id
-            WHERE lu.liga_id = $1 AND pu.jornada_id = $2
-            GROUP BY u.id, u.nombre_usuario, u.nombre_club, u.image_url
-            ORDER BY puntos_totales DESC;
-        `;
+        const { rows } = await pool.query(
+            `SELECT u.id AS usuario_id, u.nombre_usuario, u.nombre_club, u.image_url,
+                    COALESCE(SUM(pjj.puntos_totales), 0)::INT AS puntos_totales,
+                    RANK() OVER (ORDER BY COALESCE(SUM(pjj.puntos_totales), 0) DESC)::INT AS posicion
+               FROM plantillas_usuario pu
+               JOIN jornadas jo ON jo.id = pu.jornada_id
+               JOIN usuarios u ON u.id = pu.usuario_id
+               JOIN liga_usuarios lu ON lu.usuario_id = pu.usuario_id AND lu.liga_id = pu.liga_id
+               LEFT JOIN plantilla_jugadores pj ON pj.plantilla_id = pu.id
+               LEFT JOIN puntos_jugadores_jornada pjj ON pjj.jugador_id = pj.jugador_id AND pjj.jornada_id = pu.jornada_id
+              WHERE pu.liga_id = $1 AND pu.jornada_id = $2 AND jo.estado <> 'PENDIENTE'
+              GROUP BY u.id, u.nombre_usuario, u.nombre_club, u.image_url
+              ORDER BY puntos_totales DESC, u.nombre_club`,
+            [ligaId, jornadaId],
+        );
 
-        const resClasificacion = await pool.query(query, [liga_id,jornada_id]);
+        const data = [];
+        for (const u of rows) data.push({ ...u, image_url: await firmarAvatar(u.image_url) });
 
-        // AQUÍ IRÍA LA PARTE DE PROCESADOR EL AVATAR DEL USUARIO
-        const clasificacionProcesada = await Promise.all(
-            resClasificacion.rows.map(async (usuario) => {
-                if (usuario.image_url && usuario.image_url.startsWith('avatar')) {
-                    const imageUrl = await getDownloadUrl('usuarios/' + usuario.image_url);
-                    return { ...usuario, image_url: imageUrl };
-                }
-                return usuario;
-            })
-        )
-
-        res.status(200).json({
-            ok: true,
-            data: clasificacionProcesada
-        });
-
+        res.status(200).json({ ok: true, data });
     } catch (error) {
         console.error('Error al obtener la clasificación por jornada:', error);
-        res.status(500).json({
-            ok: false,
-            message: 'Error al obtener la clasificación por jornada'
-        });
+        res.status(500).json({ ok: false, message: 'Error al obtener la clasificación por jornada' });
     }
-}
+};
+
+/** Jornadas en juego o cerradas en las que la liga tiene alineaciones (más reciente primero). */
+const getJornadasLiga = async (req, res) => {
+    try {
+        const ligaId = Number(req.body.liga_id);
+        if (!Number.isInteger(ligaId)) {
+            return res.status(400).json({ ok: false, message: 'Falta la liga.' });
+        }
+        if (!(await esMiembroLiga(ligaId, req.userId))) {
+            return res.status(403).json({ ok: false, message: 'No perteneces a esta liga' });
+        }
+        const { rows } = await pool.query(SQL_JORNADAS_LIGA, [ligaId]);
+        res.status(200).json({ ok: true, data: rows });
+    } catch (error) {
+        console.error('Error al obtener las jornadas de la liga:', error);
+        res.status(500).json({ ok: false, message: 'Error al obtener las jornadas de la liga' });
+    }
+};
 
 /**
  * Resumen de la última jornada CERRADA jugada en una liga, para el usuario (bloque del Inicio):
@@ -177,5 +198,5 @@ const getResumenUltimaJornada = async (req, res) => {
 };
 
 module.exports = {
-    getClasificacionLiga, getClasificacionPorJornada, getResumenUltimaJornada
+    getClasificacionLiga, getClasificacionPorJornada, getResumenUltimaJornada, getJornadasLiga
 }

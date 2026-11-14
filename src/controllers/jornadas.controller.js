@@ -436,19 +436,31 @@ const getPuntuacionesJornadas = async (req, res) => {
             return res.status(403).json({ ok: false, message: 'No perteneces a esta liga' });
         }
 
+        // Jornadas ya empezadas en las que el usuario alineó, con sus puntos y su puesto en esa jornada
+        // (la pendiente no sale: su alineación no se puede ver hasta que empieza)
         const query = `
-            SELECT DISTINCT 
-                j.id as jornada_id,
-                j.numero_jornada, 
-                j.estado,
-                COALESCE(SUM(pjj.puntos_totales), 0) AS puntos_totales
-            FROM plantillas_usuario pu
-            JOIN jornadas j ON j.id = pu.jornada_id
-            LEFT JOIN plantilla_jugadores pj ON pj.plantilla_id = pu.id
-            LEFT JOIN puntos_jugadores_jornada pjj ON pjj.jugador_id = pj.jugador_id AND pjj.jornada_id = pu.jornada_id
-            WHERE pu.liga_id = $1 AND pu.usuario_id = $2
-            GROUP BY j.id, j.numero_jornada, j.estado
-            ORDER BY j.numero_jornada DESC;
+            WITH totales AS (
+                SELECT pu.usuario_id, pu.jornada_id,
+                       COALESCE(SUM(pjj.puntos_totales), 0)::INT AS puntos
+                  FROM plantillas_usuario pu
+                  JOIN jornadas j ON j.id = pu.jornada_id
+                  LEFT JOIN plantilla_jugadores pj ON pj.plantilla_id = pu.id
+                  LEFT JOIN puntos_jugadores_jornada pjj ON pjj.jugador_id = pj.jugador_id AND pjj.jornada_id = pu.jornada_id
+                 WHERE pu.liga_id = $1 AND j.estado <> 'PENDIENTE'
+                 GROUP BY pu.usuario_id, pu.jornada_id
+            ), ranking AS (
+                SELECT *,
+                       RANK() OVER (PARTITION BY jornada_id ORDER BY puntos DESC)::INT AS posicion,
+                       COUNT(*) OVER (PARTITION BY jornada_id)::INT AS participantes
+                  FROM totales
+            )
+            SELECT j.id AS jornada_id, j.numero_jornada, j.estado,
+                   r.puntos AS puntos_totales, r.posicion, r.participantes,
+                   EXISTS (SELECT 1 FROM once_ideal oi WHERE oi.jornada_id = j.id) AS tiene_once_ideal
+              FROM ranking r
+              JOIN jornadas j ON j.id = r.jornada_id
+             WHERE r.usuario_id = $2
+             ORDER BY j.numero_jornada DESC;
         `;
 
         const { rows } = await pool.query(query, [liga_id, usuario_id]);
