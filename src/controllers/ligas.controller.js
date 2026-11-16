@@ -442,42 +442,48 @@ const eliminarUsuarioLiga = async (req, res) => {
 
 const editarLiga = async (req, res) => {
     try {
-        const { liga_id, nombre_liga, privada, codigo_acceso } = req.body;
+        // nuevo_codigo: true genera otro código (p. ej. si el anterior se ha compartido de más)
+        const { liga_id, nuevo_codigo } = req.body;
+        const nombre_liga =
+            typeof req.body.nombre_liga === "string" ? req.body.nombre_liga.trim() : "";
+        const privada = req.body.privada === true;
 
-        if (!liga_id || !nombre_liga) {
-            return res.status(400).json({ error: "Faltan parámetros requeridos." });
+        if (!liga_id || nombre_liga.length < 3) {
+            return res.status(400).json({
+                ok: false,
+                message: "El nombre de la liga es obligatorio (mínimo 3 caracteres).",
+            });
         }
 
         if (!(await esCreadorLiga(liga_id, req.userId))) {
             return soloCreador(res);
         }
 
-        if (codigo_acceso && privada) {
-            const searchCode =
-                "SELECT * FROM ligas WHERE codigo_acceso = $1 AND id != $2";
-            const { rows } = await pool.query(searchCode, [codigo_acceso, liga_id]);
-
-            if (rows.length > 0) {
-                return res.status(400).json({
-                    ok: false,
-                    message: "El codigo de acceso ya existe.",
-                });
+        // El código lo pone siempre el servidor: una liga privada nunca se queda sin código
+        const liga = await withTransaction(async (client) => {
+            const { rows: actual } = await client.query(
+                "SELECT codigo_acceso FROM ligas WHERE id = $1 FOR UPDATE",
+                [liga_id],
+            );
+            let codigo = null;
+            if (privada) {
+                codigo =
+                    actual[0]?.codigo_acceso && !nuevo_codigo
+                        ? actual[0].codigo_acceso
+                        : await generarCodigoUnico(client);
             }
-        }
-
-        if (privada) {
-            const query =
-                "UPDATE ligas SET nombre = $1, privada = $2, codigo_acceso = $3 WHERE id = $4";
-            await pool.query(query, [nombre_liga, privada, codigo_acceso, liga_id]);
-        } else {
-            const query =
-                "UPDATE ligas SET nombre = $1, privada = $2, codigo_acceso = NULL WHERE id = $3";
-            await pool.query(query, [nombre_liga, privada, liga_id]);
-        }
+            const { rows } = await client.query(
+                `UPDATE ligas SET nombre = $1, privada = $2, codigo_acceso = $3 WHERE id = $4
+                 RETURNING id, nombre AS nombre_liga, privada, codigo_acceso`,
+                [nombre_liga, privada, codigo, liga_id],
+            );
+            return rows[0];
+        });
 
         res.status(200).json({
             ok: true,
-            message: "Liga editada exitosamente",
+            message: "Liga actualizada",
+            data: liga,
         });
     } catch (error) {
         console.error("Error al editar la liga:", error);
