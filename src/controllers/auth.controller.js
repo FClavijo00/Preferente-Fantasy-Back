@@ -167,20 +167,30 @@ const register = async (req, res) => {
 
 const actualizarUsuario = async (req, res) => {
     try {
-        const { nombre_club, nombre_usuario } = req.body;
+        const nombre_club = typeof req.body.nombre_club === 'string' ? req.body.nombre_club.trim() : '';
+        const nombre_usuario = typeof req.body.nombre_usuario === 'string' ? req.body.nombre_usuario.trim() : '';
         // El usuario solo puede editar su propio perfil (id sacado del token)
         const id = req.userId;
 
-        if (!id) {
+        if (!id || nombre_club.length < 3 || nombre_usuario.length < 3) {
             return res.status(400).json({
                 ok: false,
-                message: 'Todos los campos son obligatorios'
+                message: 'El nombre del club y el usuario son obligatorios (mínimo 3 caracteres).'
             });
         }
 
         const errorFoto = validarAvatar(req.file);
         if (errorFoto) {
             return res.status(400).json({ ok: false, message: errorFoto });
+        }
+
+        // nombre_usuario es único (índice usuarios_nombre_usuario_key): mejor avisar que dar un 500
+        const { rowCount: usado } = await pool.query(
+            'SELECT 1 FROM usuarios WHERE nombre_usuario = $1 AND id <> $2',
+            [nombre_usuario, id]
+        );
+        if (usado > 0) {
+            return res.status(409).json({ ok: false, message: 'Ese nombre de usuario ya lo tiene otra persona.' });
         }
 
         const updateQuery = 'UPDATE usuarios SET nombre_club = $1, nombre_usuario = $2 WHERE id = $3';
@@ -203,13 +213,14 @@ const actualizarUsuario = async (req, res) => {
         res.status(200).json({
             ok: true,
             data: sinPassword(resQuery.rows[0]),
-            message: 'Usuario actualizado exitosamente'
+            message: 'Perfil actualizado'
         });
 
     } catch (error) {
+        console.error('Error al actualizar el perfil:', error);
         res.status(500).json({
             ok: false,
-            message: 'Error al registrar usuario'
+            message: 'Error al actualizar el perfil'
         });
     }
 }
