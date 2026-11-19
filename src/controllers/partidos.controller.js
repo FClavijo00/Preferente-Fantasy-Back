@@ -4,6 +4,7 @@ const {
 } = require("../controllers/jugadores.controller");
 const { getDownloadUrl } = require("../config/s3");
 const { withTransaction } = require("../services/permisos");
+const { notificarActa, enSegundoPlano } = require("../services/notificaciones");
 
 const crearPartido = async (req, res) => {
     try {
@@ -509,6 +510,9 @@ const cerrarActaPartido = async (req, res) => {
 
         // CONFIRMAR TRANSACCIÓN
         await client.query("COMMIT");
+
+        // Push con el resultado (solo la primera vez que se cierra el acta de este partido)
+        enSegundoPlano(notificarActa(partido_id));
 
         res.status(200).json({
             ok: true,

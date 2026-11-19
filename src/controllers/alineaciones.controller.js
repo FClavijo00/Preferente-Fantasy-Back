@@ -1,6 +1,7 @@
 const pool = require("../config/db");
 const { getDownloadUrl } = require("../config/s3");
 const { esMiembroLiga, withTransaction } = require("../services/permisos");
+const { notificarOnceIdeal, enSegundoPlano } = require("../services/notificaciones");
 
 const noEsMiembro = (res) =>
     res.status(403).json({ ok: false, message: "No perteneces a esta liga" });
@@ -624,6 +625,9 @@ const guardarOnceIdeal = async (req, res) => {
             }
             return existentes.length > 0;
         });
+
+        // Push solo al publicarlo por primera vez (al editarlo no se vuelve a avisar)
+        if (!actualizado) enSegundoPlano(notificarOnceIdeal(jornadaId));
 
         res.status(200).json({
             ok: true,

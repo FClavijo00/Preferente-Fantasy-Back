@@ -39,6 +39,9 @@ app.use('/api/clasificaciones', clasificacionesRoutes);
 const sancionesRoutes = require('../routes/sanciones.routes');
 app.use('/api/sanciones', sancionesRoutes);
 
+const notificacionesRoutes = require('../routes/notificaciones.routes');
+app.use('/api/notificaciones', notificacionesRoutes);
+
 // Errores no controlados (p. ej. una foto que supera el límite de subida): siempre en JSON,
 // nunca la página de error de Express con la traza
 // eslint-disable-next-line no-unused-vars
@@ -56,4 +59,6 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor backend corriendo en el puerto ${PORT}`);
+  // Recordatorios de cierre de jornada (24 h y 3 h antes), cada pocos minutos
+  require('../services/notificaciones').iniciarRecordatorios();
 });
