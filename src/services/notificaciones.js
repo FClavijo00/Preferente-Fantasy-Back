@@ -198,7 +198,8 @@ const notificarCierreJornada = async (jornada, ventana) => {
                     : ligas.length === 1
                       ? `¡No tienes alineación en «${ligas[0]}»! Hazla antes del cierre o sumarás 0 puntos.`
                       : `¡Te falta la alineación en ${ligas.length} ligas! Hazlas antes del cierre o sumarás 0 puntos.`;
-            return { title: titulo, body, url: '/recepcion', tag: `cierre-${jornada.id}` };
+            // Con una sola liga entra directo a la alineación; con varias el front lo manda a recepción
+            return { title: titulo, body, url: '/tabs/alineacion', tag: `cierre-${jornada.id}` };
         },
     });
 };
