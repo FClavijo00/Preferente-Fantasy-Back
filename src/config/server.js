@@ -42,6 +42,10 @@ app.use('/api/sanciones', sancionesRoutes);
 const notificacionesRoutes = require('../routes/notificaciones.routes');
 app.use('/api/notificaciones', notificacionesRoutes);
 
+// Páginas públicas (sin sesión): resultados, clasificación y 11 ideal
+const publicoRoutes = require('../routes/publico.routes');
+app.use('/api/publico', publicoRoutes);
+
 // Errores no controlados (p. ej. una foto que supera el límite de subida): siempre en JSON,
 // nunca la página de error de Express con la traza
 // eslint-disable-next-line no-unused-vars
