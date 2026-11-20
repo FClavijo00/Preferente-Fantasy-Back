@@ -135,7 +135,7 @@ const notificarActa = async (partidoId) => {
     );
     if (rows.length === 0) return 0;
     const p = rows[0];
-    const titulo = `${p.local} ${p.goles_local ?? 0}-${p.goles_visitante ?? 0} ${p.visitante}`;
+    const titulo = `⚽ ${p.local} ${p.goles_local ?? 0}-${p.goles_visitante ?? 0} ${p.visitante}`;
     const cuerpo = `Jornada ${p.numero_jornada} · Ya están los puntos de los jugadores de este partido.`;
     return enviarUnaVez({
         registro: 'acta',
@@ -152,7 +152,7 @@ const notificarOnceIdeal = async (jornadaId) => {
     const { rows } = await db.query('SELECT numero_jornada FROM jornadas WHERE id = $1', [jornadaId]);
     if (rows.length === 0) return 0;
     const titulo = `⭐ El 11 ideal de la jornada ${rows[0].numero_jornada}`;
-    const cuerpo = 'Ya puedes ver a los mejores de la jornada elegidos por Albero y Mikasa.';
+    const cuerpo = 'Ya puedes ver a los mejores puntuados de la jornada.';
     return enviarUnaVez({
         registro: 'once_ideal',
         clave: jornadaId,
