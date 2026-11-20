@@ -164,6 +164,21 @@ const notificarOnceIdeal = async (jornadaId) => {
 };
 
 /**
+ * 2.93 h → "3 horas", 1.4 h → "1 h 30 min", 0.6 h → "35 minutos".
+ * Más de una hora: redondeo al cuarto de hora (el aviso sale en una revisión cada 5 min); menos, a 5 min.
+ */
+const tiempoRestante = (horas) => {
+    const total = Number(horas) * 60;
+    const paso = total > 60 ? 15 : 5;
+    const minutos = Math.max(5, Math.round(total / paso) * paso);
+    const h = Math.floor(minutos / 60);
+    const m = minutos % 60;
+    if (h === 0) return `${m} minutos`;
+    if (m === 0) return h === 1 ? '1 hora' : `${h} horas`;
+    return `${h} h ${m} min`;
+};
+
+/**
  * Recordatorio de cierre de jornada (24 h o 3 h antes del inicio) a los miembros de alguna liga.
  * El texto depende de si a cada usuario le falta la alineación en alguna de sus ligas.
  */
@@ -181,7 +196,12 @@ const notificarCierreJornada = async (jornada, ventana) => {
     const faltan = new Map(usuarios.map((u) => [u.usuario_id, u.sin_alineacion ?? []]));
     // "hoy a las 15:00" / "mañana a las 15:00" (en hora de España)
     const dia = jornada.dias === 0 ? 'hoy' : jornada.dias === 1 ? 'mañana' : `el ${jornada.dia_semana}`;
-    const titulo = `⏰ La jornada ${jornada.numero_jornada} cierra ${dia} a las ${jornada.hora}`;
+    const titulo =
+        ventana === '3h'
+            ? `⏳ Quedan ${tiempoRestante(jornada.horas)} para el cierre de la jornada ${jornada.numero_jornada}`
+            : `⏰ La jornada ${jornada.numero_jornada} cierra ${dia} a las ${jornada.hora}`;
+    // En el de 3 h el título ya dice cuánto queda: el cuerpo recuerda la hora exacta
+    const prefijo = ventana === '3h' ? `Cierra a las ${jornada.hora}. ` : '';
 
     return enviarUnaVez({
         registro: `recordatorio_${ventana}`,
@@ -193,11 +213,12 @@ const notificarCierreJornada = async (jornada, ventana) => {
         mensaje: (usuarioId) => {
             const ligas = faltan.get(usuarioId) ?? [];
             const body =
-                ligas.length === 0
+                prefijo +
+                (ligas.length === 0
                     ? 'Tienes la alineación hecha. Aún puedes retocarla antes del cierre.'
                     : ligas.length === 1
                       ? `¡No tienes alineación en «${ligas[0]}»! Hazla antes del cierre o sumarás 0 puntos.`
-                      : `¡Te falta la alineación en ${ligas.length} ligas! Hazlas antes del cierre o sumarás 0 puntos.`;
+                      : `¡Te falta la alineación en ${ligas.length} ligas! Hazlas antes del cierre o sumarás 0 puntos.`);
             // Con una sola liga entra directo a la alineación; con varias el front lo manda a recepción
             return { title: titulo, body, url: '/tabs/alineacion', tag: `cierre-${jornada.id}` };
         },
