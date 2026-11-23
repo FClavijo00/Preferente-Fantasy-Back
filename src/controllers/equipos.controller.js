@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const { getDownloadUrl } = require('../config/s3');
+const { posicionesJornadaAnterior } = require('../services/clasificacion-real');
 
 const getEquipos = async (req, res) => {
   try {
@@ -118,10 +119,14 @@ const getClasificacion = async (req, res) => {
       'SELECT equipo_id, puntos, motivo FROM sanciones_equipo ORDER BY created_at, id'
     );
 
+    // Puesto tras la jornada anterior a la última con resultados: flechas de sube/baja en el front
+    const anteriores = await posicionesJornadaAnterior();
+
     const clasificacionProcesada = await Promise.all(
       rows.map(async (equipo) => {
         const fotoUrl = await getDownloadUrl('equipos/' + equipo.escudo_url);
         equipo.escudo = fotoUrl;
+        equipo.posicion_anterior = anteriores.get(equipo.equipo_id) ?? null;
         equipo.sanciones = sanciones
           .filter((s) => s.equipo_id === equipo.equipo_id)
           .map(({ puntos, motivo }) => ({ puntos, motivo }));
